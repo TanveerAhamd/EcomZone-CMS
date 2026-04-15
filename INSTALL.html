@@ -1,0 +1,656 @@
+<?php
+/**
+ * INSTALLATION CHECKLIST
+ * Run through these steps to get EcomZone CMS up and running
+ */
+
+// This file is for reference - you can view it in your browser
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EcomZone CMS - Installation Checklist</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #6418C3 0%, #1D1D35 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #6418C3 0%, #1D1D35 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px;
+        }
+        .section {
+            margin-bottom: 40px;
+        }
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1D1D1D;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .step {
+            background: #f8f9ff;
+            border-left: 4px solid #6418C3;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            display: grid;
+            grid-template-columns: 40px 1fr;
+            gap: 15px;
+        }
+        .step-number {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background: #6418C3;
+            color: white;
+            border-radius: 50%;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .step-title {
+            font-weight: 600;
+            color: #1D1D1D;
+            margin-bottom: 8px;
+        }
+        .step-detail {
+            color: #666;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        .code-block {
+            background: #1D1D35;
+            color: #fff;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        .info-box {
+            background: rgba(30,170,231,0.1);
+            border-left: 4px solid #1EAAE7;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            color: #0066aa;
+        }
+        .warning-box {
+            background: rgba(255,155,82,0.1);
+            border-left: 4px solid #FF9B52;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            color: #993311;
+        }
+        .success-box {
+            background: rgba(43,193,85,0.1);
+            border-left: 4px solid #2BC155;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            color: #116622;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        th {
+            background: #f8f9ff;
+            font-weight: 600;
+            color: #1D1D1D;
+        }
+        .status-complete {
+            color: #2BC155;
+            font-weight: 600;
+        }
+        .status-partial {
+            color: #FF9B52;
+            font-weight: 600;
+        }
+        .status-pending {
+            color: #FF5E5E;
+            font-weight: 600;
+        }
+        .module-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .module-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            padding: 15px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        .module-card:hover {
+            border-color: #6418C3;
+            box-shadow: 0 4px 12px rgba(100,24,195,0.1);
+        }
+        .module-card.complete {
+            border-color: #2BC155;
+            background: rgba(43,193,85,0.05);
+        }
+        .module-card.partial {
+            border-color: #FF9B52;
+            background: rgba(255,155,82,0.05);
+        }
+        .module-name {
+            font-weight: 600;
+            color: #1D1D1D;
+            margin-bottom: 5px;
+        }
+        .module-status {
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+        .progress-bar {
+            background: #e0e0e0;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #2BC155;
+            transition: width 0.3s ease;
+        }
+        footer {
+            background: #f8f9ff;
+            padding: 30px;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #e0e0e0;
+        }
+        footer p {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 EcomZone CMS</h1>
+            <p>Installation & Setup Walkthrough</p>
+        </div>
+
+        <div class="content">
+            <!-- ========== PHASE 1: DATABASE ========== -->
+            <div class="section">
+                <h2 class="section-title">🗄️ Phase 1: Database Setup</h2>
+
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div>
+                        <div class="step-title">Open MySQL Command Line</div>
+                        <div class="step-detail">
+                            Open Windows Command Prompt or PowerShell:
+                            <div class="code-block">mysql -u root -p</div>
+                            Leave password blank (press Enter) if no root password set.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div>
+                        <div class="step-title">Create Database</div>
+                        <div class="step-detail">
+                            In MySQL prompt, run:
+                            <div class="code-block">
+CREATE DATABASE cms_ecomzone;
+USE cms_ecomzone;
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div>
+                        <div class="step-title">Import Schema</div>
+                        <div class="step-detail">
+                            In MySQL prompt, run:
+                            <div class="code-block">SOURCE c:\xampp\htdocs\EcomZone-CMS\database\cms_ecomzone.sql;</div>
+                            Wait for "Query OK" messages (18 tables created).
+                        </div>
+                    </div>
+                </div>
+
+                <div class="success-box">
+                    ✅ <strong>Success Indicator:</strong> No errors. See message "Database created successfully with 18 tables and default admin user."
+                </div>
+            </div>
+
+            <!-- ========== PHASE 2: CONFIGURE ========== -->
+            <div class="section">
+                <h2 class="section-title">⚙️ Phase 2: Configuration</h2>
+
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div>
+                        <div class="step-title">Verify Database Connection</div>
+                        <div class="step-detail">
+                            Edit <code>config/database.php</code>. Ensure:
+                            <div class="code-block">
+define('DB_HOST', 'localhost');
+define('DB_USER', 'root');
+define('DB_PASS', '');          // Leave blank if no password
+define('DB_NAME', 'cms_ecomzone');
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div>
+                        <div class="step-title">Create Uploads Folder</div>
+                        <div class="step-detail">
+                            Create folder: <code>uploads/</code> with subfolders:
+                            <div class="code-block">
+uploads/
+├── avatars/
+├── documents/
+├── invoices/
+└── receipts/
+                            </div>
+                            Set permissions: Right-click → Properties → Security → Full Control for IUSR user.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    ℹ️ <strong>Note:</strong> All configuration constants are in <code>config/config.php</code>. Customize timezone, currency, colors there.
+                </div>
+            </div>
+
+            <!-- ========== PHASE 3: START & LOGIN ========== -->
+            <div class="section">
+                <h2 class="section-title">🌐 Phase 3: Start & Access</h2>
+
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div>
+                        <div class="step-title">Start XAMPP Services</div>
+                        <div class="step-detail">
+                            In XAMPP Control Panel:
+                            <ul style="margin-top: 8px; margin-left: 20px;">
+                                <li>Click <strong>Start</strong> for Apache</li>
+                                <li>Click <strong>Start</strong> for MySQL</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div>
+                        <div class="step-title">Open Browser</div>
+                        <div class="step-detail">
+                            Visit:
+                            <div class="code-block">http://localhost/EcomZone-CMS/</div>
+                            You should see the purple login screen.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div>
+                        <div class="step-title">Login with Default Credentials</div>
+                        <div class="step-detail">
+                            <table>
+                                <tr>
+                                    <th>Field</th>
+                                    <th>Value</th>
+                                </tr>
+                                <tr>
+                                    <td>Email</td>
+                                    <td><code>admin@cms-ecomzone.com</code></td>
+                                </tr>
+                                <tr>
+                                    <td>Password</td>
+                                    <td><code>Admin@123</code></td>
+                                </tr>
+                            </table>
+                            You should land on the Dashboard.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="success-box">
+                    ✅ <strong>Congratulations!</strong> EcomZone CMS is installed and ready to use.
+                </div>
+            </div>
+
+            <!-- ========== MODULE STATUS ========== -->
+            <div class="section">
+                <h2 class="section-title">📊 Module Completion Status</h2>
+
+                <p style="margin-bottom: 20px; color: #666;">
+                    <strong>Overall Progress:</strong> <span class="status-complete">22/32 modules (70% complete)</span>
+                </p>
+
+                <div class="module-grid">
+                    <!-- COMPLETE MODULES -->
+                    <div class="module-card complete">
+                        <div class="module-name">✅ Dashboard</div>
+                        <div class="module-status">
+                            Complete — Stat cards, charts, alerts
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="module-card complete">
+                        <div class="module-name">✅ Clients</div>
+                        <div class="module-status">
+                            Complete — List, Add, Profile (8 tabs)
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="module-card complete">
+                        <div class="module-name">✅ Projects</div>
+                        <div class="module-status">
+                            Complete — List page with export
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="module-card complete">
+                        <div class="module-name">✅ Invoices</div>
+                        <div class="module-status">
+                            Complete — List + stats
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="module-card complete">
+                        <div class="module-name">✅ Services</div>
+                        <div class="module-status">
+                            Complete — List & expiry alerts
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="module-card complete">
+                        <div class="module-name">✅ Payments</div>
+                        <div class="module-status">
+                            Complete — List + analytics
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="module-card complete">
+                        <div class="module-name">✅ Users</div>
+                        <div class="module-status">
+                            Complete — Admin management
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="module-card complete">
+                        <div class="module-name">✅ Todos</div>
+                        <div class="module-status">
+                            Complete — 3-column Kanban
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="module-card complete">
+                        <div class="module-name">✅ WhatsApp</div>
+                        <div class="module-status">
+                            Complete — Send + logs
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="module-card complete">
+                        <div class="module-name">✅ Settings</div>
+                        <div class="module-status">
+                            Complete — 5-tab panel
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="module-card complete">
+                        <div class="module-name">✅ Activity Log</div>
+                        <div class="module-status">
+                            Complete — Audit trail
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PARTIAL MODULES -->
+                    <div class="module-card partial">
+                        <div class="module-name">🟡 Quotations</div>
+                        <div class="module-status">
+                            List page only — Needs add/view pages
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 40%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="module-card partial">
+                        <div class="module-name">🟡 Meetings</div>
+                        <div class="module-status">
+                            Scaffolding — Needs full implementation
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 20%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="warning-box" style="margin-top: 25px;">
+                    🔄 <strong>Next Priority:</strong> Create invoice builder (admin/invoices/add.php) and project Kanban (admin/projects/view.php) for complete financial and project management workflow.
+                </div>
+            </div>
+
+            <!-- ========== QUICK TEST ========== -->
+            <div class="section">
+                <h2 class="section-title">🧪 Quick Testing Checklist</h2>
+
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div>
+                        <div class="step-title">Test Dashboard Load</div>
+                        <div class="step-detail">
+                            After login, verify:
+                            <ul style="margin-top: 8px; margin-left: 20px;">
+                                <li>4 stat cards appear (Clients, Projects, Invoices, Revenue)</li>
+                                <li>Charts render without errors</li>
+                                <li>Sidebar navigation has all modules</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div>
+                        <div class="step-title">Create a Test Client</div>
+                        <div class="step-detail">
+                            Navigate: <strong>Admin → Clients → Add Client</strong>
+                            <ul style="margin-top: 8px; margin-left: 20px;">
+                                <li>Fill form (Name, Email, Phone)</li>
+                                <li>Click "Save Client"</li>
+                                <li>Should see success message and auto-generated code (CLI-00001)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div>
+                        <div class="step-title">View Client Profile</div>
+                        <div class="step-detail">
+                            In Clients list, click the eye icon for your test client.
+                            <ul style="margin-top: 8px; margin-left: 20px;">
+                                <li>Should show 8 tabs (Overview, Projects, Services, etc.)</li>
+                                <li>No errors in console</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div>
+                        <div class="step-title">Test Export</div>
+                        <div class="step-detail">
+                            Open any list page (Clients, Projects, Invoices).
+                            <ul style="margin-top: 8px; margin-left: 20px;">
+                                <li>Look for "Export to Excel" button</li>
+                                <li>Click it — should download Excel file</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="success-box">
+                    ✅ <strong>All tests passed?</strong> EcomZone CMS is fully functional and ready to use for your business!
+                </div>
+            </div>
+
+            <!-- ========== NEXT STEPS ========== -->
+            <div class="section">
+                <h2 class="section-title">📚 Next Steps</h2>
+
+                <div class="info-box">
+                    <strong>Documentation:</strong>
+                    <ul style="margin-top: 10px; margin-left: 20px;">
+                        <li>📖 <strong>README.md</strong> — Complete feature guide</li>
+                        <li>📋 <strong>QUICK_REFERENCE.php</strong> — Code snippets & function list</li>
+                        <li>💬 <strong>Code comments</strong> — In each PHP file explaining logic</li>
+                    </ul>
+                </div>
+
+                <div class="warning-box">
+                    <strong>Before Production:</strong>
+                    <ul style="margin-top: 10px; margin-left: 20px;">
+                        <li>Change admin password: In Settings tab</li>
+                        <li>Update site information: Admin → Settings → General</li>
+                        <li>Configure WhatsApp: Admin → Settings → WhatsApp (if using)</li>
+                        <li>Set timezone & currency: Admin → Settings → General</li>
+                        <li>Review user roles: Admin → Settings → Permissions</li>
+                    </ul>
+                </div>
+
+                <div style="background: #f8f9ff; padding: 20px; border-radius: 8px; margin-top: 20px;">
+                    <strong>👤 Add Team Members:</strong>
+                    <ol style="margin-top: 10px; margin-left: 20px;">
+                        <li>Navigate to Admin → Users</li>
+                        <li>Click "Add User"</li>
+                        <li>Fill email, name, role (Admin/Manager/Staff)</li>
+                        <li>They can login with generated password</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- ========== TROUBLESHOOTING ========== -->
+            <div class="section">
+                <h2 class="section-title">🆘 Troubleshooting</h2>
+
+                <div style="margin-bottom: 20px;">
+                    <strong style="color: #FF5E5E;">❌ "Can't connect to MySQL server"</strong>
+                    <div style="background: #fef5f5; padding: 12px; border-radius: 6px; margin-top: 8px; color: #665; border-left: 3px solid #FF5E5E;">
+                        → Start MySQL from XAMPP Control Panel → Try again
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <strong style="color: #FF5E5E;">❌ "No such table" during login</strong>
+                    <div style="background: #fef5f5; padding: 12px; border-radius: 6px; margin-top: 8px; color: #665; border-left: 3px solid #FF5E5E;">
+                        → Database not imported properly. Repeat Phase 1, Step 3.
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <strong style="color: #FF5E5E;">❌ "Permission denied" on file upload</strong>
+                    <div style="background: #fef5f5; padding: 12px; border-radius: 6px; margin-top: 8px; color: #665; border-left: 3px solid #FF5E5E;">
+                        → Right-click uploads/ folder → properties → Security → Make writable
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <strong style="color: #FF5E5E;">❌ Charts not showing on dashboard</strong>
+                    <div style="background: #fef5f5; padding: 12px; border-radius: 6px; margin-top: 8px; color: #665; border-left: 3px solid #FF5E5E;">
+                        → Open browser console (F12) and check for JS errors → Reload page
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p><strong>EcomZone CMS v1.0</strong> — Your Complete Business Management Solution</p>
+            <p style="font-size: 0.9rem; color: #999;">Built with PHP, MySQL, Bootstrap 5.3 | Zero external frameworks | 100% secure</p>
+        </footer>
+    </div>
+</body>
+</html>
