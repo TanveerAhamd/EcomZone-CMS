@@ -17,7 +17,7 @@ if (!$id) {
     redirect('admin/invoices/index.php');
 }
 
-$stmt = $db->prepare("SELECT i.*, c.client_name, c.email, c.phone, c.company_name, c.address, c.city, c.country FROM invoices i
+$stmt = $db->prepare("SELECT i.*, c.client_name, c.email, c.primary_phone, c.company_name, c.address, c.city, c.country FROM invoices i
     LEFT JOIN clients c ON i.client_id = c.id
     WHERE i.id = ?");
 $stmt->execute([$id]);
@@ -48,6 +48,31 @@ if ($_POST['action'] ?? null === 'mark_paid') {
 
 include __DIR__ . '/../../includes/header.php';
 ?>
+
+<style>
+    @media print {
+        body {
+            background: white;
+            padding: 0;
+            margin: 0;
+        }
+        .navbar, 
+        .sidebar, 
+        .no-print,
+        .container-fluid > div:first-child,
+        form {
+            display: none !important;
+        }
+        .btn,
+        button,
+        a[class*="btn"] {
+            display: none !important;
+        }
+        div[style*="margin-bottom: 20px; display: flex"] {
+            display: none !important;
+        }
+    }
+</style>
 
 <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
     <a href="/EcomZone-CMS/admin/invoices/index.php" class="btn btn-secondary">
@@ -138,50 +163,103 @@ include __DIR__ . '/../../includes/header.php';
                 <td style="padding: 12px;"><?php echo clean($item['description']); ?></td>
                 <td style="padding: 12px; text-align: center;"><?php echo $item['quantity']; ?></td>
                 <td style="padding: 12px; text-align: right;"><?php echo formatCurrency($item['unit_price']); ?></td>
-                <td style="padding: 12px; text-align: right;"><?php echo formatCurrency($item['line_total']); ?></td>
+                <td style="padding: 12px; text-align: right;"><?php echo formatCurrency($item['total']); ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
     </table>
 
-    <!-- SUMMARY -->
-    <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
-        <div style="width: 300px;">
+    <!-- SUMMARY & BALANCE -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+        <!-- CALCULATION SUMMARY -->
+        <div style="width: 100%;">
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
                 <span>Subtotal:</span>
                 <span><?php echo formatCurrency($invoice['subtotal']); ?></span>
             </div>
-            <?php if ($invoice['tax_percentage'] > 0): ?>
+            <?php if ($invoice['tax_percent'] > 0): ?>
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
-                <span>Tax (<?php echo $invoice['tax_percentage']; ?>%):</span>
-                <span><?php echo formatCurrency($invoice['tax']); ?></span>
+                <span>Tax (<?php echo $invoice['tax_percent']; ?>%):</span>
+                <span><?php echo formatCurrency($invoice['tax_amount']); ?></span>
             </div>
             <?php endif; ?>
-            <?php if ($invoice['discount'] > 0): ?>
+            <?php if ($invoice['discount_percent'] > 0): ?>
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
-                <span>Discount:</span>
-                <span>-<?php echo formatCurrency($invoice['discount']); ?></span>
+                <span>Discount (<?php echo $invoice['discount_percent']; ?>%):</span>
+                <span>-<?php echo formatCurrency($invoice['discount_amount']); ?></span>
             </div>
             <?php endif; ?>
-            <div style="display: flex; justify-content: space-between; padding: 12px 0; font-size: 1.2rem; font-weight: 700; color: #6418C3; border-top: 2px solid #6418C3;">
-                <span>Total:</span>
+            <div style="display: flex; justify-content: space-between; padding: 12px 0; font-size: 1.1rem; font-weight: 700; color: #6418C3; border-top: 2px solid #6418C3;">
+                <span>Invoice Total:</span>
                 <span><?php echo formatCurrency($invoice['total']); ?></span>
             </div>
-            <?php if ($invoice['paid_amount'] > 0): ?>
-            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid #e0e0e0;">
-                <span>Paid:</span>
-                <span><?php echo formatCurrency($invoice['paid_amount']); ?></span>
+        </div>
+
+        <!-- PAYMENT SUMMARY -->
+        <div style="background: #f8f9ff; padding: 15px; border-radius: 8px; border-left: 4px solid #1EAAE7;">
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
+                <span style="font-weight: 600;">Amount Paid:</span>
+                <span style="color: #2BC155; font-weight: 600;"><?php echo formatCurrency($invoice['paid_amount']); ?></span>
             </div>
-            <div style="display: flex; justify-content: space-between; padding: 8px 0; font-weight: 600; color: #FF5E5E;">
-                <span>Balance:</span>
-                <span><?php echo formatCurrency($invoice['balance']); ?></span>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
+                <span style="font-weight: 600;">Due Balance:</span>
+                <span style="color: #FF5E5E; font-weight: 600; font-size: 1.1rem;"><?php echo formatCurrency($invoice['balance']); ?></span>
             </div>
-            <?php endif; ?>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                <span style="font-weight: 600;">Payment Status:</span>
+                <span style="background: <?php echo ($invoice['balance'] <= 0) ? '#2BC155' : (($invoice['paid_amount'] > 0) ? '#FF9B52' : '#999'); ?>; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;">
+                    <?php 
+                    if ($invoice['balance'] <= 0) echo 'PAID';
+                    elseif ($invoice['paid_amount'] > 0) echo 'PARTIAL';
+                    else echo 'PENDING';
+                    ?>
+                </span>
+            </div>
         </div>
     </div>
 
+    <?php
+    // Get project total if this invoice is part of a project
+    if ($invoice['project_id']) {
+        $stmt = $db->prepare("
+            SELECT 
+                SUM(i.total) as project_total,
+                SUM(i.paid_amount) as project_paid,
+                SUM(i.balance) as project_balance,
+                COUNT(i.id) as invoice_count
+            FROM invoices i
+            WHERE i.project_id = ? AND i.status IN ('sent', 'partial', 'paid')
+        ");
+        $stmt->execute([$invoice['project_id']]);
+        $projectStats = $stmt->fetch();
+    ?>
+    
+    <!-- PROJECT COST BREAKDOWN -->
+    <div style="padding: 20px; background: #f0f4ff; border-radius: 8px; border-left: 4px solid #6418C3; margin-bottom: 20px;">
+        <h5 style="margin: 0 0 15px 0; font-weight: 600; color: #333;"><i class="fas fa-project-diagram"></i> Project Cost Summary</h5>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+            <div style="background: white; padding: 12px; border-radius: 6px; text-align: center;">
+                <small style="color: #999; display: block; margin-bottom: 5px;">Total Project Value</small>
+                <div style="font-size: 1.3rem; font-weight: 700; color: #6418C3;"><?php echo formatCurrency($projectStats['project_total'] ?? 0); ?></div>
+            </div>
+            <div style="background: white; padding: 12px; border-radius: 6px; text-align: center;">
+                <small style="color: #999; display: block; margin-bottom: 5px;">Total Paid</small>
+                <div style="font-size: 1.3rem; font-weight: 700; color: #2BC155;"><?php echo formatCurrency($projectStats['project_paid'] ?? 0); ?></div>
+            </div>
+            <div style="background: white; padding: 12px; border-radius: 6px; text-align: center;">
+                <small style="color: #999; display: block; margin-bottom: 5px;">Remaining Balance</small>
+                <div style="font-size: 1.3rem; font-weight: 700; color: #FF5E5E;"><?php echo formatCurrency($projectStats['project_balance'] ?? 0); ?></div>
+            </div>
+            <div style="background: white; padding: 12px; border-radius: 6px; text-align: center;">
+                <small style="color: #999; display: block; margin-bottom: 5px;">Invoices</small>
+                <div style="font-size: 1.3rem; font-weight: 700; color: #1EAAE7;"><?php echo $projectStats['invoice_count'] ?? 0; ?></div>
+            </div>
+        </div>
+    </div>
+    <?php } ?>
+
     <!-- ACTION BUTTONS (Not printed) -->
-    <div style="display: flex; gap: 10px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; print-hide: true;">
+    <div style="display: flex; gap: 10px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;" class="no-print">
         <?php if ($invoice['status'] !== 'paid'): ?>
         <form method="POST" style="display: inline;">
             <button type="submit" name="action" value="mark_paid" class="btn btn-success" 
@@ -198,12 +276,5 @@ include __DIR__ . '/../../includes/header.php';
         </a>
     </div>
 </div>
-
-<style media="print">
-    .btn { display: none; }
-    a { display: none; }
-    form { display: none; }
-    div[style*="display: flex; gap: 10px"] { display: none !important; }
-</style>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>

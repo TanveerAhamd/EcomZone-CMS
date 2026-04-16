@@ -42,7 +42,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     goto form_end;
                 }
                 
-                $receipt_file = uploadFile($_FILES['receipt'], 'payments');
+                $result = uploadFile($_FILES['receipt'], UPLOAD_RECEIPT_PATH);
+                if ($result['success']) {
+                    $receipt_file = $result['file_name'];
+                } else {
+                    setFlash('danger', 'Receipt upload failed: ' . $result['error']);
+                    goto form_end;
+                }
             }
             
             // Get invoice current data
@@ -69,12 +75,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $new_status = 'pending';
             }
             
+            // Generate unique payment number
+            $payment_number = generateCode('PAY', 'payments', 'payment_number');
+            
             // Insert payment record
             $stmt = $db->prepare("
-                INSERT INTO payments (invoice_id, amount, payment_date, payment_method, transaction_id, receipt_file, notes, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+                INSERT INTO payments (payment_number, invoice_id, client_id, amount, payment_date, payment_method, transaction_id, receipt_file, notes, created_by, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ");
-            $stmt->execute([$invoice_id, $amount, $payment_date, $payment_method, $transaction_id, $receipt_file, $notes]);
+            $stmt->execute([$payment_number, $invoice_id, $invoice['client_id'], $amount, $payment_date, $payment_method, $transaction_id, $receipt_file, $notes, currentUser()['id']]);
             
             // Update invoice
             $stmt = $db->prepare("

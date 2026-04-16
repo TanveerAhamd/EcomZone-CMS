@@ -41,6 +41,7 @@ $dashboardStats = getDashboardStats();
     
     <!-- SweetAlert2 -->
     <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.18/dist/sweetalert2.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.18/dist/sweetalert2.min.js"></script>
     
     <!-- Toastr.js -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" rel="stylesheet">
@@ -511,9 +512,9 @@ $dashboardStats = getDashboardStats();
                 <i class="fas fa-tasks"></i>
                 <span>Projects</span>
             </a>
-            <a href="<?php echo APP_URL; ?>/admin/services/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'services') !== false) ? 'active' : ''; ?>">
-                <i class="fas fa-cogs"></i>
-                <span>Services</span>
+            <a href="<?php echo APP_URL; ?>/admin/service-categories/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'service-categories') !== false) ? 'active' : ''; ?>">
+                <i class="fas fa-layer-group"></i>
+                <span>Service Categories</span>
             </a>
 
             <div class="nav-section-label">FINANCE</div>
@@ -531,6 +532,10 @@ $dashboardStats = getDashboardStats();
             </a>
 
             <div class="nav-section-label">COLLABORATION</div>
+            <a href="<?php echo APP_URL; ?>/admin/alerts/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'alerts') !== false) ? 'active' : ''; ?>">
+                <i class="fas fa-bell"></i>
+                <span>Manage Alerts</span>
+            </a>
             <a href="<?php echo APP_URL; ?>/admin/meetings/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'meetings') !== false) ? 'active' : ''; ?>">
                 <i class="fas fa-calendar-check"></i>
                 <span>Meetings</span>

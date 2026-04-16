@@ -15,21 +15,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             global $db;
             
             $project_id = sanitizeInt($_POST['project_id'] ?? 0);
-            $task_name = $_POST['task_name'] ?? '';
+            $task_title = $_POST['task_name'] ?? '';
             $priority = $_POST['priority'] ?? 'medium';
             $due_date = $_POST['due_date'] ?? null;
             $description = $_POST['description'] ?? '';
             
-            if (!$task_name) {
+            if (!$task_title) {
                 setFlash('danger', 'Task name is required');
             } else {
                 $stmt = $db->prepare("
-                    INSERT INTO tasks (project_id, task_name, description, priority, due_date, status, created_at)
+                    INSERT INTO tasks (project_id, task_title, description, priority, due_date, status, created_at)
                     VALUES (?, ?, ?, ?, ?, 'todo', NOW())
                 ");
-                $stmt->execute([$project_id, $task_name, $description, $priority, $due_date]);
+                $stmt->execute([$project_id, $task_title, $description, $priority, $due_date]);
                 
-                logActivity('CREATE', 'tasks', $db->lastInsertId(), "Task created: " . $task_name);
+                logActivity('CREATE', 'tasks', $db->lastInsertId(), "Task created: " . $task_title);
                 setFlash('success', 'Task added successfully!');
             }
         } catch (Exception $e) {

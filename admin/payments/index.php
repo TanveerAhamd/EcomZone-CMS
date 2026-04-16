@@ -118,7 +118,10 @@ include __DIR__ . '/../../includes/header.php';
                 <td><small><?php echo ucfirst($payment['payment_method']); ?></small></td>
                 <td><small><?php echo clean($payment['transaction_id'] ?? '-'); ?></small></td>
                 <td>
-                    <button class="btn btn-sm btn-primary"><i class="fas fa-eye"></i></button>
+                    <a href="<?php echo APP_URL; ?>/admin/payments/view.php?id=<?php echo $payment['id']; ?>" class="btn btn-sm btn-primary" title="View Details"><i class="fas fa-eye"></i></a>
+                    <?php if ($payment['receipt_file']): ?>
+                    <a href="<?php echo APP_URL; ?>/admin/payments/download.php?file=<?php echo urlencode($payment['receipt_file']); ?>" class="btn btn-sm btn-success" title="Download Receipt"><i class="fas fa-download"></i></a>
+                    <?php endif; ?>
                 </td>
             </tr>
             <?php endforeach; ?>

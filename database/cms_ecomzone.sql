@@ -55,13 +55,16 @@ CREATE TABLE `clients` (
 CREATE TABLE `client_documents` (
   `id` INT PRIMARY KEY AUTO_INCREMENT,
   `client_id` INT NOT NULL,
-  `doc_type` ENUM('passport', 'cnic', 'emirates_id', 'company_cert', 'utility_bill', 'bank_statement', 'other') NOT NULL,
-  `file_name` VARCHAR(255) NOT NULL,
-  `original_name` VARCHAR(255),
-  `uploaded_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `document_name` VARCHAR(255) NOT NULL,
+  `document_type` VARCHAR(50) NOT NULL,
+  `file_path` VARCHAR(255) NOT NULL,
+  `uploaded_by` INT,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`client_id`) REFERENCES `clients`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`uploaded_by`) REFERENCES `users`(`id`) ON DELETE SET NULL,
   INDEX `client_id` (`client_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 -- ============================================
 -- SERVICES TABLE
@@ -69,11 +72,11 @@ CREATE TABLE `client_documents` (
 CREATE TABLE `services` (
   `id` INT PRIMARY KEY AUTO_INCREMENT,
   `service_name` VARCHAR(100) NOT NULL,
-  `category` ENUM('uae_tax', 'usa_tax', 'uk_tax', 'vat', 'company', 'bookkeeping', 'noon', 'amazon', 'pioneer', 'wise', 'paypal', 'uk_ltd', 'other') NOT NULL,
+  `category` ENUM('tax_compliance', 'company_setup', 'accounting', 'consulting', 'legal', 'other') NOT NULL,
   `price` DECIMAL(12, 2) NOT NULL,
   `description` TEXT,
-  `renewal_period` ENUM('monthly', 'quarterly', 'yearly', 'one_time') DEFAULT 'yearly',
-  `status` ENUM('active', 'inactive') DEFAULT 'active',
+  `renewal_period` ENUM('monthly', 'quarterly', 'half_yearly', 'yearly', 'as_needed') DEFAULT 'yearly',
+  `status` ENUM('active', 'inactive', 'discontinued') DEFAULT 'active',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX `category` (`category`),
   INDEX `status` (`status`)
@@ -87,9 +90,10 @@ CREATE TABLE `client_services` (
   `client_id` INT NOT NULL,
   `service_id` INT NOT NULL,
   `start_date` DATE NOT NULL,
-  `expiry_date` DATE NOT NULL,
+  `renewal_date` DATE NOT NULL,
   `price` DECIMAL(12, 2),
   `status` ENUM('active', 'expired', 'cancelled', 'renewed') DEFAULT 'active',
+  `alert_days` INT DEFAULT 30,
   `alert_30_sent` TINYINT DEFAULT 0,
   `alert_15_sent` TINYINT DEFAULT 0,
   `alert_7_sent` TINYINT DEFAULT 0,
@@ -101,7 +105,7 @@ CREATE TABLE `client_services` (
   FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE SET NULL,
   INDEX `client_id` (`client_id`),
   INDEX `service_id` (`service_id`),
-  INDEX `expiry_date` (`expiry_date`),
+  INDEX `renewal_date` (`renewal_date`),
   INDEX `status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

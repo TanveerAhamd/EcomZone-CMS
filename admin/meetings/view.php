@@ -1,6 +1,6 @@
 <?php
 /**
- * MEETINGS - VIEW PAGE
+ * MEETINGS - VIEW PAGE (ENHANCED)
  */
 
 require_once __DIR__ . '/../../includes/init.php';
@@ -17,10 +17,9 @@ if (!$id) {
     redirect('admin/meetings/index.php');
 }
 
-$stmt = $db->prepare("SELECT m.*, c.client_name, p.project_name, u.name as created_by FROM meetings m
+$stmt = $db->prepare("SELECT m.*, c.client_name, p.project_name FROM meetings m
     LEFT JOIN clients c ON m.client_id = c.id
     LEFT JOIN projects p ON m.project_id = p.id
-    LEFT JOIN users u ON m.user_id = u.id
     WHERE m.id = ?");
 $stmt->execute([$id]);
 $meeting = $stmt->fetch();
@@ -33,97 +32,93 @@ if (!$meeting) {
 include __DIR__ . '/../../includes/header.php';
 ?>
 
-<div style="margin-bottom: 20px;">
-    <a href="/EcomZone-CMS/admin/meetings/index.php" class="btn btn-secondary">
-        <i class="fas fa-arrow-left"></i> Back to Meetings
-    </a>
-</div>
-
-<div style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.08);">
-    <h2 style="margin-top: 0; font-weight: 700;"><?php echo clean($meeting['title']); ?></h2>
-
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin: 25px 0; padding: 20px; background: #f8f9ff; border-radius: 8px;">
+<div style="background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); padding: 30px; max-width: 700px;">
+    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 25px;">
         <div>
-            <small style="color: #999; font-weight: 600;">Date</small>
-            <p style="margin: 8px 0 0 0; font-size: 1.1rem;">
-                <i class="fas fa-calendar"></i> <?php echo formatDate($meeting['meeting_date']); ?>
-                <?php if ($meeting['meeting_time']): ?>
-                <i class="fas fa-clock" style="margin-left: 10px;"></i> <?php echo $meeting['meeting_time']; ?>
-                <?php endif; ?>
-            </p>
+            <h2 style="margin: 0; font-weight: 700; color: #1a202c;"><?php echo clean($meeting['title']); ?></h2>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <a href="/EcomZone-CMS/admin/meetings/add.php?id=<?php echo $meeting['id']; ?>" class="btn" style="background: #fff3cd; color: #856404; padding: 8px 15px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; font-size: 0.9rem; text-decoration: none;">
+                <i class="fas fa-edit"></i> Edit
+            </a>
+            <button type="button" onclick="deleteMeeting()" class="btn" style="background: #f8d7da; color: #721c24; padding: 8px 15px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; font-size: 0.9rem;">
+                <i class="fas fa-trash"></i> Delete
+            </button>
+        </div>
+    </div>
+
+    <?php echo flashAlert(); ?>
+
+    <!-- Meeting Details -->
+    <div style="display: grid; gap: 20px;">
+        <!-- Client & Project -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; padding: 15px; background: #f8f9ff; border-radius: 8px;">
+            <?php if ($meeting['client_name']): ?>
+            <div>
+                <small style="color: #999; font-weight: 600;">Client</small>
+                <p style="margin: 6px 0 0 0; font-weight: 500;"><?php echo clean($meeting['client_name']); ?></p>
+            </div>
+            <?php endif; ?>
+            <?php if ($meeting['project_name']): ?>
+            <div>
+                <small style="color: #999; font-weight: 600;">Project</small>
+                <p style="margin: 6px 0 0 0; font-weight: 500;"><?php echo clean($meeting['project_name']); ?></p>
+            </div>
+            <?php endif; ?>
         </div>
 
-        <?php if ($meeting['client_name']): ?>
+        <!-- Agenda -->
+        <?php if ($meeting['agenda']): ?>
         <div>
-            <small style="color: #999; font-weight: 600;">Client</small>
-            <p style="margin: 8px 0 0 0; font-size: 1rem;"><?php echo clean($meeting['client_name']); ?></p>
+            <label style="font-weight: 600; color: #1a202c; display: block; margin-bottom: 8px;">
+                <i class="fas fa-list" style="color: #6418C3; margin-right: 8px;"></i>Agenda
+            </label>
+            <div style="background: #f8f9ff; padding: 15px; border-radius: 8px; white-space: pre-wrap; line-height: 1.6; color: #666;">
+                <?php echo clean($meeting['agenda']); ?>
+            </div>
         </div>
         <?php endif; ?>
 
-        <?php if ($meeting['project_name']): ?>
+        <!-- Meeting Notes -->
+        <?php if ($meeting['notes']): ?>
         <div>
-            <small style="color: #999; font-weight: 600;">Project</small>
-            <p style="margin: 8px 0 0 0; font-size: 1rem;"><?php echo clean($meeting['project_name']); ?></p>
+            <label style="font-weight: 600; color: #1a202c; display: block; margin-bottom: 8px;">
+                <i class="fas fa-sticky-note" style="color: #6418C3; margin-right: 8px;"></i>Meeting Notes
+            </label>
+            <div style="background: #f8f9ff; padding: 15px; border-radius: 8px; white-space: pre-wrap; line-height: 1.6; color: #666;">
+                <?php echo clean($meeting['notes']); ?>
+            </div>
         </div>
         <?php endif; ?>
-
-        <div>
-            <small style="color: #999; font-weight: 600;">Created By</small>
-            <p style="margin: 8px 0 0 0; font-size: 1rem;"><?php echo clean($meeting['created_by']); ?></p>
-        </div>
     </div>
 
-    <?php if ($meeting['attendees']): ?>
-    <div style="margin: 20px 0;">
-        <h5 style="font-weight: 600;">Attendees</h5>
-        <p><?php echo clean($meeting['attendees']); ?></p>
-    </div>
-    <?php endif; ?>
-
-    <?php if ($meeting['agenda']): ?>
-    <div style="margin: 20px 0;">
-        <h5 style="font-weight: 600;">Agenda</h5>
-        <div style="background: #f8f9ff; padding: 15px; border-radius: 6px; white-space: pre-wrap;">
-            <?php echo clean($meeting['agenda']); ?>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <?php if ($meeting['notes']): ?>
-    <div style="margin: 20px 0;">
-        <h5 style="font-weight: 600;">Notes</h5>
-        <div style="background: #f8f9ff; padding: 15px; border-radius: 6px; white-space: pre-wrap;">
-            <?php echo clean($meeting['notes']); ?>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <?php if ($meeting['action_items']): ?>
-    <div style="margin: 20px 0;">
-        <h5 style="font-weight: 600;">Action Items</h5>
-        <div style="background: #fff3cd; padding: 15px; border-radius: 6px; border-left: 4px solid #FF9B52; white-space: pre-wrap;">
-            <?php echo clean($meeting['action_items']); ?>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <?php if ($meeting['follow_up_date']): ?>
-    <div style="margin: 20px 0;">
-        <h5 style="font-weight: 600;">Follow-up Date</h5>
-        <p>
-            <i class="fas fa-calendar"></i> <?php echo formatDate($meeting['follow_up_date']); ?>
-        </p>
-    </div>
-    <?php endif; ?>
-
-    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-        <a href="/EcomZone-CMS/admin/meetings/add.php?id=<?php echo $meeting['id']; ?>" class="btn btn-warning">
-            <i class="fas fa-edit"></i> Edit Meeting
-        </a>
-        <a href="/EcomZone-CMS/admin/meetings/index.php" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Back
+    <!-- Back Button -->
+    <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+        <a href="/EcomZone-CMS/admin/meetings/index.php" class="btn" style="background: #f0f0f0; color: #1a202c; padding: 10px 20px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; text-decoration: none;">
+            <i class="fas fa-arrow-left"></i> Back to Meetings
         </a>
     </div>
 </div>
+
+<script>
+function deleteMeeting() {
+    if (confirm('Delete this meeting? This cannot be undone.')) {
+        fetch('/EcomZone-CMS/admin/meetings/delete.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: <?php echo $meeting['id']; ?> })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = '/EcomZone-CMS/admin/meetings/index.php';
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => alert('Error: ' + error.message));
+    }
+}
+</script>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>

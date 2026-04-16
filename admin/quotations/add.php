@@ -37,8 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $client_id = $_POST['client_id'] ?? null;
             $issue_date = $_POST['issue_date'] ?? date('Y-m-d');
             $valid_until = $_POST['valid_until'] ?? '';
-            $tax_percentage = sanitizeInt($_POST['tax_percentage'] ?? 0);
-            $discount = sanitizeInt($_POST['discount'] ?? 0);
+            $tax_percent = sanitizeInt($_POST['tax_percentage'] ?? 0);
+            $discount_percent = sanitizeInt($_POST['discount'] ?? 0);
             $notes = $_POST['notes'] ?? '';
             $quote_items = $_POST['items'] ?? [];
             
@@ -55,21 +55,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 
-                $tax = ($subtotal * $tax_percentage) / 100;
-                $total = $subtotal + $tax - (float)$discount;
+                $tax_amount = ($subtotal * $tax_percent) / 100;
+                $discount_amount = ($subtotal * $discount_percent) / 100;
+                $total = $subtotal + $tax_amount - $discount_amount;
                 
                 if ($id) {
                     // Update existing
                     $stmt = $db->prepare("
                         UPDATE quotations SET 
                             client_id = ?, issue_date = ?, valid_until = ?, 
-                            tax_percentage = ?, discount = ?, notes = ?,
-                            subtotal = ?, tax = ?, total = ?
+                            tax_percent = ?, tax_amount = ?, discount_percent = ?, discount_amount = ?, notes = ?,
+                            subtotal = ?, total = ?
                         WHERE id = ?
                     ");
                     $stmt->execute([
                         $client_id, $issue_date, $valid_until,
-                        $tax_percentage, $discount, $notes, $subtotal, $tax, $total, $id
+                        $tax_percent, $tax_amount, $discount_percent, $discount_amount, $notes, $subtotal, $total, $id
                     ]);
                     
                     // Delete old items
@@ -83,12 +84,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     $stmt = $db->prepare("
                         INSERT INTO quotations 
-                        (client_id, quotation_number, issue_date, valid_until, tax_percentage, discount, notes, subtotal, tax, total, status, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', NOW())
+                        (client_id, quotation_number, issue_date, valid_until, tax_percent, tax_amount, discount_percent, discount_amount, notes, subtotal, total, status, created_by, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, NOW())
                     ");
                     $stmt->execute([
                         $client_id, $quotation_number, $issue_date, $valid_until,
-                        $tax_percentage, $discount, $notes, $subtotal, $tax, $total
+                        $tax_percent, $tax_amount, $discount_percent, $discount_amount, $notes, $subtotal, $total, currentUser()['id']
                     ]);
                     
                     $quote_id = $db->lastInsertId();
@@ -100,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $line_total = (float)$item['quantity'] * (float)$item['unit_price'];
                         
                         $stmt = $db->prepare("
-                            INSERT INTO quotation_items (quotation_id, description, quantity, unit_price, line_total)
+                            INSERT INTO quotation_items (quotation_id, description, quantity, unit_price, total)
                             VALUES (?, ?, ?, ?, ?)
                         ");
                         $stmt->execute([
@@ -207,7 +208,7 @@ include __DIR__ . '/../../includes/header.php';
                                class="form-control price-input" style="border-radius: 6px; border: 1px solid #ddd; text-align: right;">
                     </td>
                     <td style="padding: 12px; text-align: right;">
-                        <span class="line-total"><?php echo formatCurrency($item['line_total']); ?></span>
+                        <span class="line-total"><?php echo formatCurrency($item['total']); ?></span>
                     </td>
                     <td style="padding: 12px; text-align: center;">
                         <button type="button" class="btn btn-sm btn-danger remove-row">

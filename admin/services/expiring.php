@@ -1,33 +1,16 @@
 <?php
 /**
- * SERVICE EXPIRY ALERTS PAGE
+ * SERVICES - DEPRECATED
+ * This module has been replaced by Manage Alerts
+ * Redirecting to new module...
  */
 
 require_once __DIR__ . '/../../includes/init.php';
 
 requireLogin();
 
-$pageTitle = 'Service Expiry Alerts';
-
-$expiringServices = checkExpiringServices();
-
-// Filter by days left
-$daysFilter = isset($_GET['days']) ? (int)$_GET['days'] : null;
-$filtered = [];
-
-foreach ($expiringServices as $service) {
-    $daysLeft = (strtotime($service['expiry_date']) - time()) / (24 * 60 * 60);
-    
-    if ($daysFilter) {
-        if ($daysFilter === 7 && $daysLeft <= 7) {
-            $filtered[] = array_merge($service, ['daysLeft' => $daysLeft]);
-        } elseif ($daysFilter === 15 && $daysLeft <= 15) {
-            $filtered[] = array_merge($service, ['daysLeft' => $daysLeft]);
-        } elseif ($daysFilter === 30 && $daysLeft <= 30) {
-            $filtered[] = array_merge($service, ['daysLeft' => $daysLeft]);
-        }
-    } else {
-        $filtered[] = array_merge($service, ['daysLeft' => $daysLeft]);
+// Redirect to the new Manage Alerts module
+redirect('admin/alerts/index.php');
     }
 }
 

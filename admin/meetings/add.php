@@ -1,6 +1,6 @@
 <?php
 /**
- * MEETINGS - ADD/EDIT PAGE
+ * MEETINGS - ADD/EDIT PAGE (MODERN REDESIGN)
  */
 
 require_once __DIR__ . '/../../includes/init.php';
@@ -29,36 +29,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $title = $_POST['title'] ?? '';
             $client_id = $_POST['client_id'] ?? null;
             $project_id = $_POST['project_id'] ?? null;
-            $meeting_date = $_POST['meeting_date'] ?? '';
-            $meeting_time = $_POST['meeting_time'] ?? '';
-            $attendees = $_POST['attendees'] ?? '';
             $agenda = $_POST['agenda'] ?? '';
             $notes = $_POST['notes'] ?? '';
-            $action_items = $_POST['action_items'] ?? '';
-            $follow_up_date = $_POST['follow_up_date'] ?? null;
+            
+            // Convert empty strings to NULL for foreign keys
+            $client_id = !empty($client_id) ? $client_id : null;
+            $project_id = !empty($project_id) ? $project_id : null;
             
             if (!$title) {
                 setFlash('danger', 'Meeting title is required');
-            } elseif (!$meeting_date) {
-                setFlash('danger', 'Meeting date is required');
             } else {
                 if ($id) {
                     $stmt = $db->prepare("
                         UPDATE meetings SET 
-                            title = ?, client_id = ?, project_id = ?, meeting_date = ?,
-                            meeting_time = ?, attendees = ?, agenda = ?, notes = ?,
-                            action_items = ?, follow_up_date = ?
+                            title = ?, client_id = ?, project_id = ?, agenda = ?, notes = ?, updated_at = NOW()
                         WHERE id = ?
                     ");
-                    $stmt->execute([$title, $client_id, $project_id, $meeting_date, $meeting_time, $attendees, $agenda, $notes, $action_items, $follow_up_date, $id]);
+                    $stmt->execute([$title, $client_id, $project_id, $agenda, $notes, $id]);
                     logActivity('UPDATE', 'meetings', $id, "Meeting updated");
                     setFlash('success', 'Meeting updated successfully!');
                 } else {
                     $stmt = $db->prepare("
-                        INSERT INTO meetings (user_id, title, client_id, project_id, meeting_date, meeting_time, attendees, agenda, notes, action_items, follow_up_date, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                        INSERT INTO meetings (user_id, title, client_id, project_id, agenda, notes, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, NOW())
                     ");
-                    $stmt->execute([currentUser()['id'], $title, $client_id, $project_id, $meeting_date, $meeting_time, $attendees, $agenda, $notes, $action_items, $follow_up_date]);
+                    $stmt->execute([currentUser()['id'], $title, $client_id, $project_id, $agenda, $notes]);
                     logActivity('CREATE', 'meetings', $db->lastInsertId(), "Meeting created");
                     setFlash('success', 'Meeting scheduled successfully!');
                 }
@@ -70,34 +65,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Get clients for dropdown
+$stmt = $db->prepare("SELECT id, client_name FROM clients ORDER BY client_name");
+$stmt->execute();
+$clients = $stmt->fetchAll();
+
 include __DIR__ . '/../../includes/header.php';
 ?>
 
-<h1 style="margin-bottom: 25px; font-weight: 700; font-size: 2rem;">
-    <?php echo $meeting ? 'Edit Meeting' : 'Schedule New Meeting'; ?>
-</h1>
+<div style="background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); padding: 30px; max-width: 600px;">
+    <h2 style="margin: 0 0 25px 0; font-weight: 700; color: #1a202c;">
+        <i class="fas fa-calendar-plus" style="color: #6418C3; margin-right: 10px;"></i>
+        <?php echo $id ? 'Edit Meeting' : 'Create Meeting'; ?>
+    </h2>
 
-<?php echo flashAlert(); ?>
+    <?php echo flashAlert(); ?>
 
-<form method="POST" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.08);">
-    <?php echo csrfField(); ?>
+    <form method="POST">
+        <?php echo csrfField(); ?>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px;">
-        <div class="form-group">
-            <label>Meeting Title *</label>
-            <input type="text" name="title" class="form-control" value="<?php echo clean($meeting['title'] ?? ''); ?>" required>
+        <!-- Meeting Title -->
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label style="font-weight: 600; margin-bottom: 8px; display: block;">Meeting Title *</label>
+            <input type="text" name="title" class="form-control" 
+                   value="<?php echo clean($meeting['title'] ?? ''); ?>" 
+                   placeholder="Enter meeting title" required>
         </div>
 
-        <div class="form-group">
-            <label>Client (Optional)</label>
-            <select name="client_id" class="form-control">
+        <!-- Client Dropdown -->
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label style="font-weight: 600; margin-bottom: 8px; display: block;">Client</label>
+            <select name="client_id" id="clientSelect" class="form-control" onchange="loadProjects()">
                 <option value="">-- Select Client --</option>
-                <?php
-                $stmt = $db->prepare("SELECT id, client_name FROM clients ORDER BY client_name");
-                $stmt->execute();
-                $clients = $stmt->fetchAll();
-                foreach ($clients as $c):
-                ?>
+                <?php foreach ($clients as $c): ?>
                 <option value="<?php echo $c['id']; ?>" <?php echo ($meeting['client_id'] ?? null) == $c['id'] ? 'selected' : ''; ?>>
                     <?php echo clean($c['client_name']); ?>
                 </option>
@@ -105,69 +105,77 @@ include __DIR__ . '/../../includes/header.php';
             </select>
         </div>
 
-        <div class="form-group">
-            <label>Project (Optional)</label>
-            <select name="project_id" class="form-control">
+        <!-- Project Dropdown (AJAX) -->
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label style="font-weight: 600; margin-bottom: 8px; display: block;">Project</label>
+            <select name="project_id" id="projectSelect" class="form-control">
                 <option value="">-- Select Project --</option>
                 <?php
-                $stmt = $db->prepare("SELECT id, project_name FROM projects ORDER BY project_name");
-                $stmt->execute();
-                $projects = $stmt->fetchAll();
-                foreach ($projects as $p):
+                if ($meeting && $meeting['client_id']) {
+                    $stmt = $db->prepare("SELECT id, project_name FROM projects WHERE client_id = ? ORDER BY project_name");
+                    $stmt->execute([$meeting['client_id']]);
+                    $projects = $stmt->fetchAll();
+                    foreach ($projects as $p):
                 ?>
                 <option value="<?php echo $p['id']; ?>" <?php echo ($meeting['project_id'] ?? null) == $p['id'] ? 'selected' : ''; ?>>
                     <?php echo clean($p['project_name']); ?>
                 </option>
-                <?php endforeach; ?>
+                <?php
+                    endforeach;
+                }
+                ?>
             </select>
         </div>
-    </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px;">
-        <div class="form-group">
-            <label>Meeting Date *</label>
-            <input type="date" name="meeting_date" class="form-control" value="<?php echo $meeting['meeting_date'] ?? ''; ?>" required>
+        <!-- Agenda -->
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label style="font-weight: 600; margin-bottom: 8px; display: block;">Agenda</label>
+            <textarea name="agenda" class="form-control" rows="4" 
+                      placeholder="What will be discussed in this meeting?"><?php echo clean($meeting['agenda'] ?? ''); ?></textarea>
         </div>
 
-        <div class="form-group">
-            <label>Meeting Time</label>
-            <input type="time" name="meeting_time" class="form-control" value="<?php echo $meeting['meeting_time'] ?? ''; ?>">
+        <!-- Meeting Notes -->
+        <div class="form-group" style="margin-bottom: 25px;">
+            <label style="font-weight: 600; margin-bottom: 8px; display: block;">Meeting Notes</label>
+            <textarea name="notes" class="form-control" rows="4" 
+                      placeholder="Key discussion points and outcomes..."><?php echo clean($meeting['notes'] ?? ''); ?></textarea>
         </div>
 
-        <div class="form-group">
-            <label>Follow-up Date</label>
-            <input type="date" name="follow_up_date" class="form-control" value="<?php echo $meeting['follow_up_date'] ?? ''; ?>">
+        <!-- Buttons -->
+        <div style="display: flex; gap: 10px;">
+            <button type="submit" class="btn" style="background: #6418C3; color: white; padding: 10px 25px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer;">
+                <i class="fas fa-save"></i> <?php echo $id ? 'Update' : 'Create'; ?>
+            </button>
+            <a href="/EcomZone-CMS/admin/meetings/index.php" class="btn" style="background: #f0f0f0; color: #1a202c; padding: 10px 25px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; text-decoration: none;">
+                <i class="fas fa-times"></i> Cancel
+            </a>
         </div>
-    </div>
+    </form>
+</div>
 
-    <div class="form-group">
-        <label>Attendees</label>
-        <input type="text" name="attendees" class="form-control" placeholder="e.g., John, Sarah, Team Lead" value="<?php echo clean($meeting['attendees'] ?? ''); ?>">
-    </div>
-
-    <div class="form-group">
-        <label>Agenda</label>
-        <textarea name="agenda" class="form-control" rows="4"><?php echo clean($meeting['agenda'] ?? ''); ?></textarea>
-    </div>
-
-    <div class="form-group">
-        <label>Meeting Notes</label>
-        <textarea name="notes" class="form-control" rows="4"><?php echo clean($meeting['notes'] ?? ''); ?></textarea>
-    </div>
-
-    <div class="form-group">
-        <label>Action Items</label>
-        <textarea name="action_items" class="form-control" rows="4" placeholder="List items to follow up on"><?php echo clean($meeting['action_items'] ?? ''); ?></textarea>
-    </div>
-
-    <div style="display: flex; gap: 10px;">
-        <button type="submit" class="btn btn-primary" style="background: #6418C3; border: none;">
-            <i class="fas fa-save"></i> <?php echo $meeting ? 'Update Meeting' : 'Schedule Meeting'; ?>
-        </button>
-        <a href="/EcomZone-CMS/admin/meetings/index.php" class="btn btn-secondary">
-            <i class="fas fa-times"></i> Cancel
-        </a>
-    </div>
-</form>
+<script>
+function loadProjects() {
+    const clientId = document.getElementById('clientSelect').value;
+    const projectSelect = document.getElementById('projectSelect');
+    
+    if (!clientId) {
+        projectSelect.innerHTML = '<option value="">-- Select Project --</option>';
+        return;
+    }
+    
+    fetch('/EcomZone-CMS/admin/meetings/get-projects.php?client_id=' + clientId)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.projects) {
+                let options = '<option value="">-- Select Project --</option>';
+                data.projects.forEach(project => {
+                    options += `<option value="${project.id}">${project.project_name}</option>`;
+                });
+                projectSelect.innerHTML = options;
+            }
+        })
+        .catch(error => console.error('Error loading projects:', error));
+}
+</script>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>

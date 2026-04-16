@@ -1,33 +1,16 @@
 <?php
 /**
- * SERVICES - DELETE HANDLER
+ * SERVICES - DEPRECATED
+ * This module has been replaced by Service Categories
+ * Redirecting to new module...
  */
 
 require_once __DIR__ . '/../../includes/init.php';
 
 requireLogin();
-requireRole(['admin', 'manager']);
 
-global $db;
-
-$id = sanitizeInt($_GET['id'] ?? 0);
-
-if (!$id) {
-    setFlash('danger', 'Service not found');
-} else {
-    try {
-        $stmt = $db->prepare("SELECT service_name FROM services WHERE id = ?");
-        $stmt->execute([$id]);
-        $service = $stmt->fetch();
-        
-        if ($service) {
-            $stmt = $db->prepare("DELETE FROM services WHERE id = ?");
-            $stmt->execute([$id]);
-            logActivity('DELETE', 'services', $id, "Service deleted: " . $service['service_name']);
-            setFlash('success', 'Service deleted successfully!');
-        }
-    } catch (Exception $e) {
-        setFlash('danger', 'Error: ' . $e->getMessage());
+// Redirect to the new Service Categories module
+redirect('admin/service-categories/index.php');
     }
 }
 

@@ -1,25 +1,16 @@
 <?php
 /**
- * SERVICES - ADD/EDIT PAGE (COMPLETE CRUD)
+ * SERVICES - DEPRECATED
+ * This module has been replaced by Service Categories
+ * Redirecting to new module...
  */
 
 require_once __DIR__ . '/../../includes/init.php';
 
 requireLogin();
-requireRole(['admin', 'manager']);
 
-$pageTitle = 'Manage Service';
-
-global $db;
-
-$service = null;
-$id = $_GET['id'] ?? null;
-
-if ($id) {
-    $stmt = $db->prepare("SELECT * FROM services WHERE id = ?");
-    $stmt->execute([$id]);
-    $service = $stmt->fetch();
-}
+// Redirect to the new Service Categories module
+redirect('admin/service-categories/index.php');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
@@ -86,6 +77,7 @@ include __DIR__ . '/../../includes/header.php';
                 <option value="accounting" <?php echo ($service['category'] ?? null) === 'accounting' ? 'selected' : ''; ?>>Accounting</option>
                 <option value="consulting" <?php echo ($service['category'] ?? null) === 'consulting' ? 'selected' : ''; ?>>Consulting</option>
                 <option value="legal" <?php echo ($service['category'] ?? null) === 'legal' ? 'selected' : ''; ?>>Legal</option>
+                <option value="other" <?php echo ($service['category'] ?? null) === 'other' ? 'selected' : ''; ?>>Other</option>
             </select>
         </div>
 

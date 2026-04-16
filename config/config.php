@@ -76,7 +76,7 @@ define('SERVICE_ALERT_DAYS', [1, 7, 15, 30]);
 // COLOR PALETTE (Match Workload Design)
 // ============================================
 const COLORS = [
-    'primary' => '#6418C3',
+    'primary' => '#0026ff',
     'secondary' => '#1EAAE7',
     'success' => '#2BC155',
     'warning' => '#FF9B52',

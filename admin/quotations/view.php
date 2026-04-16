@@ -17,7 +17,7 @@ if (!$id) {
     redirect('admin/quotations/index.php');
 }
 
-$stmt = $db->prepare("SELECT q.*, c.client_name, c.email, c.phone, c.company_name, c.address, c.city, c.country FROM quotations q
+$stmt = $db->prepare("SELECT q.*, c.client_name, c.email, c.primary_phone, c.company_name, c.address, c.city, c.country FROM quotations q
     LEFT JOIN clients c ON q.client_id = c.id
     WHERE q.id = ?");
 $stmt->execute([$id]);
@@ -37,13 +37,20 @@ if ($_POST['action'] ?? null === 'convert') {
     try {
         $invoice_number = generateCode('INV', 'invoices', 'invoice_number');
         
+        $subtotal = $quotation['subtotal'];
+        $tax_percent = $quotation['tax_percent'] ?? 0;
+        $tax_amount = $quotation['tax_amount'] ?? 0;
+        $discount_percent = $quotation['discount_percent'] ?? 0;
+        $discount_amount = $quotation['discount_amount'] ?? 0;
+        $project_id = $quotation['project_id'] ?? null;
+        
         $stmt = $db->prepare("
-            INSERT INTO invoices (client_id, invoice_number, issue_date, due_date, status, subtotal, tax_percentage, discount, tax, total, created_at)
-            VALUES (?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 'pending', ?, ?, ?, ?, ?, NOW())
+            INSERT INTO invoices (client_id, project_id, quotation_id, invoice_number, issue_date, due_date, status, subtotal, tax_percent, tax_amount, discount_percent, discount_amount, total, paid_amount, balance, created_at)
+            VALUES (?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 'pending', ?, ?, ?, ?, ?, ?, 0, ?, NOW())
         ");
         $stmt->execute([
-            $quotation['client_id'], $invoice_number,
-            $quotation['subtotal'], $quotation['tax_percentage'], $quotation['discount'], $quotation['tax'], $quotation['total']
+            $quotation['client_id'], $project_id, $quotation['id'], $invoice_number,
+            $subtotal, $tax_percent, $tax_amount, $discount_percent, $discount_amount, $quotation['total'], $quotation['total']
         ]);
         
         $invoice_id = $db->lastInsertId();
@@ -51,10 +58,10 @@ if ($_POST['action'] ?? null === 'convert') {
         // Copy items
         foreach ($items as $item) {
             $stmt = $db->prepare("
-                INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, line_total)
+                INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, total)
                 VALUES (?, ?, ?, ?, ?)
             ");
-            $stmt->execute([$invoice_id, $item['description'], $item['quantity'], $item['unit_price'], $item['line_total']]);
+            $stmt->execute([$invoice_id, $item['description'], $item['quantity'], $item['unit_price'], $item['total']]);
         }
         
         // Update quotation status
@@ -157,7 +164,7 @@ include __DIR__ . '/../../includes/header.php';
                 <td style="padding: 12px;"><?php echo clean($item['description']); ?></td>
                 <td style="padding: 12px; text-align: center;"><?php echo $item['quantity']; ?></td>
                 <td style="padding: 12px; text-align: right;"><?php echo formatCurrency($item['unit_price']); ?></td>
-                <td style="padding: 12px; text-align: right;"><?php echo formatCurrency($item['line_total']); ?></td>
+                <td style="padding: 12px; text-align: right;"><?php echo formatCurrency($item['total']); ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
@@ -170,16 +177,16 @@ include __DIR__ . '/../../includes/header.php';
                 <span>Subtotal:</span>
                 <span><?php echo formatCurrency($quotation['subtotal']); ?></span>
             </div>
-            <?php if ($quotation['tax_percentage'] > 0): ?>
+            <?php if (($quotation['tax_percent'] ?? 0) > 0): ?>
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
-                <span>Tax (<?php echo $quotation['tax_percentage']; ?>%):</span>
-                <span><?php echo formatCurrency($quotation['tax']); ?></span>
+                <span>Tax (<?php echo $quotation['tax_percent']; ?>%):</span>
+                <span><?php echo formatCurrency($quotation['tax_amount']); ?></span>
             </div>
             <?php endif; ?>
-            <?php if ($quotation['discount'] > 0): ?>
+            <?php if (($quotation['discount_amount'] ?? 0) > 0): ?>
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
                 <span>Discount:</span>
-                <span>-<?php echo formatCurrency($quotation['discount']); ?></span>
+                <span>-<?php echo formatCurrency($quotation['discount_amount']); ?></span>
             </div>
             <?php endif; ?>
             <div style="display: flex; justify-content: space-between; padding: 12px 0; font-size: 1.2rem; font-weight: 700; color: #6418C3; border-top: 2px solid #6418C3;">
@@ -198,7 +205,7 @@ include __DIR__ . '/../../includes/header.php';
     <?php endif; ?>
 
     <!-- ACTION BUTTONS (Not printed) -->
-    <div style="display: flex; gap: 10px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; print-hide: true;">
+    <div style="display: flex; gap: 10px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
         <?php if ($quotation['status'] === 'sent' || $quotation['status'] === 'draft'): ?>
         <form method="POST" style="display: inline;">
             <button type="submit" name="action" value="convert" class="btn btn-success" 

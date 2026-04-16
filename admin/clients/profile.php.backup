@@ -474,36 +474,6 @@ include __DIR__ . '/../../includes/header.php';
             grid-template-columns: 1fr;
         }
     }
-
-    /* Notification Buttons */
-    .btn-notify {
-        transition: all 0.3s ease;
-    }
-
-    .btn-notify:hover:not(:disabled) {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-
-    .btn-notify:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-    }
-
-    /* Document Upload Form */
-    #uploadDocumentForm input,
-    #uploadDocumentForm select {
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
-    }
-
-    #uploadDocumentForm input:focus,
-    #uploadDocumentForm select:focus {
-        outline: none;
-        box-shadow: 0 4px 15px rgba(100, 24, 195, 0.2);
-        transform: translateY(-2px);
-    }
-
 </style>
 
 <!-- PROFILE BANNER -->
@@ -580,69 +550,6 @@ include __DIR__ . '/../../includes/header.php';
             <button class="btn-whatsapp" onclick="sendWhatsAppMessage('<?php echo preg_replace('/[^0-9]/', '', $client['primary_phone']); ?>', 'Hi <?php echo $client['client_name']; ?>, ')">
                 <i class="fab fa-whatsapp"></i> Send WhatsApp
             </button>
-        </div>
-
-        <!-- Quick Stats -->
-        <div class="sidebar-card">
-            <h5 class="sidebar-card-title"><i class="fas fa-bell"></i> Expiring Services</h5>
-            <?php
-            $stmt = $db->prepare("
-                SELECT ps.*, p.project_name
-                FROM project_services ps
-                JOIN projects p ON ps.project_id = p.id
-                WHERE p.client_id = :id AND ps.status IN ('active', 'expired')
-                ORDER BY ps.expiry_date ASC
-                LIMIT 8
-            ");
-            $stmt->execute([':id' => $clientId]);
-            $expiringServices = $stmt->fetchAll();
-
-            if (count($expiringServices) > 0):
-                foreach ($expiringServices as $svc):
-                    $daysLeft = $svc['expiry_date'] ? (strtotime($svc['expiry_date']) - time()) / (24 * 60 * 60) : 999;
-                    if ($daysLeft < 0) {
-                        $badgeColor = '#FF5E5E';
-                        $badgeText = '⚠️ EXPIRED';
-                        $showNotify = true;
-                    } elseif ($daysLeft < 7) {
-                        $badgeColor = '#FF9B52';
-                        $badgeText = '⏰ ' . round($daysLeft) . 'd';
-                        $showNotify = true;
-                    } elseif ($daysLeft < 30) {
-                        $badgeColor = '#FFD700';
-                        $badgeText = '📅 ' . round($daysLeft) . 'd';
-                        $showNotify = true;
-                    } else {
-                        $badgeColor = '#2BC155';
-                        $badgeText = '✓ ' . round($daysLeft) . 'd';
-                        $showNotify = false;
-                    }
-            ?>
-                    <div style="margin-bottom: 15px; padding: 12px; background: #f9f9f9; border-radius: 8px; border-left: 4px solid <?php echo $badgeColor; ?>;">
-                        <p style="margin: 0 0 6px 0; font-weight: 700; color: #1D1D1D; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center;">
-                            <?php echo clean($svc['service_name']); ?>
-                            <span style="background: <?php echo $badgeColor; ?>; color: white; padding: 3px 8px; border-radius: 3px; font-size: 0.65rem; font-weight: 600; white-space: nowrap; margin-left: 8px;">
-                                <?php echo $badgeText; ?>
-                            </span>
-                        </p>
-                        <p style="margin: 0 0 8px 0; color: #999; font-size: 0.75rem;">
-                            <?php echo clean($svc['project_name']); ?>
-                        </p>
-                        <?php if ($showNotify): ?>
-                            <div style="display: flex; gap: 6px; font-size: 0.75rem;">
-                                <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $client['primary_phone']) ?: preg_replace('/[^0-9]/', '', $client['secondary_phone']); ?>?text=<?php echo urlencode('Hi ' . $client['client_name'] . ',\n\n⚠️ Service Renewal Notice\n\nService: ' . $svc['service_name'] . '\nProject: ' . $svc['project_name'] . '\nExpiry: ' . formatDate($svc['expiry_date']) . '\n\nPlease contact us for renewal.\n\nThank you!'); ?>" target="_blank" class="btn-notify" style="flex: 1; background: #25D366; color: white; border: none; padding: 6px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.7rem; text-decoration: none; display: flex; align-items: center; justify-content: center;">
-                                    💬 WhatsApp
-                                </a>
-                                <button class="btn-notify" onclick="notifyServiceExpiry(<?php echo $svc['id']; ?>, 'email', this)" style="flex: 1; background: #1EAAE7; color: white; border: none; padding: 6px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.7rem;">
-                                    📧 Email
-                                </button>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                <?php endforeach;
-            else: ?>
-                <p style="color: #999; text-align: center; margin: 20px 0; font-size: 0.85rem;">No expiring services</p>
-            <?php endif; ?>
         </div>
 
 
@@ -773,41 +680,7 @@ include __DIR__ . '/../../includes/header.php';
 
             <!-- TAB: DOCUMENTS (AJAX) -->
             <div id="documents" class="tab-pane fade" role="tabpanel" data-tab="documents">
-                <!-- Upload Form - Always Visible -->
-                <div style="margin-bottom: 25px;">
-                    <div style="background: linear-gradient(135deg, #6418C3, #9B59B6); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-                        <h5 style="margin: 0 0 15px 0;"><i class="fas fa-cloud-upload-alt"></i> Upload New Document</h5>
-                        <form id="uploadDocumentForm" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;">
-                            <div style="flex: 1; min-width: 200px;">
-                                <label style="display: block; color: #f0f0f0; font-size: 0.85rem; margin-bottom: 5px; font-weight: 600;">Document Name</label>
-                                <input type="text" id="docName" name="document_name" placeholder="e.g., Contract, Agreement" style="width: 100%; padding: 10px; border: none; border-radius: 6px; font-size: 0.9rem;" required>
-                            </div>
-                            <div style="flex: 1; min-width: 150px;">
-                                <label style="display: block; color: #f0f0f0; font-size: 0.85rem; margin-bottom: 5px; font-weight: 600;">Type</label>
-                                <select id="docType" name="document_type" style="width: 100%; padding: 10px; border: none; border-radius: 6px; font-size: 0.9rem;">
-                                    <option value="contract">📋 Contract</option>
-                                    <option value="agreement">📝 Agreement</option>
-                                    <option value="invoice">📄 Invoice</option>
-                                    <option value="certificate">🏆 Certificate</option>
-                                    <option value="other">📎 Other</option>
-                                </select>
-                            </div>
-                            <div style="flex: 1; min-width: 150px;">
-                                <label style="display: block; color: #f0f0f0; font-size: 0.85rem; margin-bottom: 5px; font-weight: 600;">File</label>
-                                <input type="file" id="docFile" name="file" style="width: 100%; padding: 10px; border: 2px solid rgba(255,255,255,0.3); border-radius: 6px; font-size: 0.9rem; color: white; background: rgba(255,255,255,0.1);" required>
-                            </div>
-                            <button type="submit" style="background: white; color: #6418C3; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: all 0.3s;">
-                                <i class="fas fa-upload"></i> Upload
-                            </button>
-                        </form>
-                        <p style="margin: 12px 0 0 0; font-size: 0.8rem; opacity: 0.9;">Supported: PDF, Word, Images (Max 10MB)</p>
-                    </div>
-                </div>
-
-                <!-- Documents List - Loaded via AJAX -->
-                <div id="documentsContent">
-                    <div class="tab-loader"><i class="fas fa-spinner fa-spin"></i> Loading documents...</div>
-                </div>
+                <div class="tab-loader"><i class="fas fa-spinner fa-spin"></i> Loading documents...</div>
             </div>
         </div>
     </div>
@@ -887,29 +760,22 @@ include __DIR__ . '/../../includes/header.php';
     function loadTabData(tabName, tabPane) {
         console.log(`📡 Fetching data for tab: ${tabName}...`);
 
-        // For documents tab, target the content div only
-        const contentTarget = tabName === 'documents' ? document.getElementById('documentsContent') : tabPane;
-
         fetch(`<?php echo APP_URL; ?>/admin/clients/ajax-tabs.php?client_id=${CLIENT_ID}&tab=${tabName}`)
             .then(response => {
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 return response.json();
             })
             .then(data => {
-                console.log(`✅ Data loaded for ${tabName}`, data);
+                console.log(`✅ Data loaded for ${tabName}`);
                 if (data.html) {
-                    contentTarget.innerHTML = data.html;
-                    // Re-attach upload form if documents tab
-                    if (tabName === 'documents') {
-                        attachDocumentUploadHandler();
-                    }
+                    tabPane.innerHTML = data.html;
                 } else if (data.error) {
-                    contentTarget.innerHTML = `<div class="empty-state"><i class="fas fa-inbox empty-state-icon"></i><p>${data.error}</p></div>`;
+                    tabPane.innerHTML = `<div class="empty-state"><i class="fas fa-inbox empty-state-icon"></i><p>${data.error}</p></div>`;
                 }
             })
             .catch(error => {
                 console.error(`❌ Error loading ${tabName}:`, error);
-                contentTarget.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle empty-state-icon"></i><p>Error loading data. Please try again.</p></div>`;
+                tabPane.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle empty-state-icon"></i><p>Error loading data</p></div>`;
             });
     }
 
@@ -1012,251 +878,6 @@ include __DIR__ . '/../../includes/header.php';
     window.addEventListener('load', () => {
         setTimeout(window.renderChart, 200);
     });
-
-    // ========== DOCUMENT UPLOAD HANDLER ==========
-    function attachDocumentUploadHandler() {
-        const form = document.getElementById('uploadDocumentForm');
-        if (!form) return;
-
-        // Remove previous listeners
-        const newForm = form.cloneNode(true);
-        form.parentNode.replaceChild(newForm, form);
-
-        document.getElementById('uploadDocumentForm')?.addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            const formData = new FormData();
-            formData.append('client_id', CLIENT_ID);
-            formData.append('document_name', document.getElementById('docName').value);
-            formData.append('document_type', document.getElementById('docType').value);
-            formData.append('file', document.getElementById('docFile').files[0]);
-
-            const btn = this.querySelector('button[type="submit"]');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
-            btn.disabled = true;
-
-            fetch('<?php echo APP_URL; ?>/admin/clients/upload-document.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    Swal.fire('✅ Success!', 'Document uploaded successfully!', 'success');
-                    document.getElementById('uploadDocumentForm').reset();
-                    loadTabData('documents', document.getElementById('documents'));
-                } else {
-                    Swal.fire('❌ Error!', data.error || 'Upload failed', 'error');
-                }
-            })
-            .catch(err => Swal.fire('❌ Error!', 'Upload failed', 'error'))
-            .finally(() => {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            });
-        });
-    }
-
-    // Attach upload handler on page load
-    document.addEventListener('DOMContentLoaded', () => {
-        attachDocumentUploadHandler();
-    });
-
-    // ========== VIEW DOCUMENT ==========
-    window.viewDoc = function(docId) {
-        const APP_URL = '<?php echo APP_URL; ?>';
-        fetch(`${APP_URL}/admin/clients/document-view.php?id=${docId}&action=view`)
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    const doc = data.document;
-                    Swal.fire({
-                        title: doc.original_name,
-                        html: `<div style="text-align: left;">
-                            <p><strong>Type:</strong> ${doc.doc_type.toUpperCase()}</p>
-                            <p><strong>Size:</strong> ${doc.file_size}</p>
-                            <p><strong>Uploaded:</strong> ${doc.uploaded_at}</p>
-                        </div>`,
-                        icon: 'info',
-                        confirmButtonText: 'Close'
-                    });
-                }
-            })
-            .catch(err => Swal.fire('Error', 'Failed to load document', 'error'));
-    };
-
-    // ========== EDIT DOCUMENT ==========
-    window.editDoc = function(docId) {
-        const APP_URL = '<?php echo APP_URL; ?>';
-        fetch(`${APP_URL}/admin/clients/document-view.php?id=${docId}&action=view`)
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    const doc = data.document;
-                    Swal.fire({
-                        title: 'Edit Document',
-                        html: `<input type="text" id="editName" value="${doc.original_name}" placeholder="Document Name" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px; box-sizing: border-box;">
-                            <select id="editType" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
-                                <option value="contract" ${doc.doc_type === 'contract' ? 'selected' : ''}>Contract</option>
-                                <option value="agreement" ${doc.doc_type === 'agreement' ? 'selected' : ''}>Agreement</option>
-                                <option value="invoice" ${doc.doc_type === 'invoice' ? 'selected' : ''}>Invoice</option>
-                                <option value="certificate" ${doc.doc_type === 'certificate' ? 'selected' : ''}>Certificate</option>
-                                <option value="other" ${doc.doc_type === 'other' ? 'selected' : ''}>Other</option>
-                            </select>`,
-                        showCancelButton: true,
-                        confirmButtonText: 'Save',
-                        preConfirm: () => {
-                            const name = document.getElementById('editName').value;
-                            const type = document.getElementById('editType').value;
-                            if (!name) {
-                                Swal.showValidationMessage('Name is required');
-                                return false;
-                            }
-                            return {name, type};
-                        }
-                    }).then(result => {
-                        if (result.isConfirmed) {
-                            const formData = new FormData();
-                            formData.append('original_name', result.value.name);
-                            formData.append('doc_type', result.value.type);
-                            
-                            fetch(`${APP_URL}/admin/clients/document-view.php?id=${docId}&action=edit`, {
-                                method: 'POST',
-                                body: formData
-                            })
-                            .then(r => r.json())
-                            .then(data => {
-                                if (data.success) {
-                                    Swal.fire('✅ Updated!', 'Document updated', 'success');
-                                    loadTabData('documents', document.getElementById('documents'));
-                                } else {
-                                    Swal.fire('Error', data.error || 'Update failed', 'error');
-                                }
-                            });
-                        }
-                    });
-                }
-            });
-    };
-
-    // ========== DELETE DOCUMENT ==========
-    window.deleteDoc = function(docId) {
-        const APP_URL = '<?php echo APP_URL; ?>';
-        Swal.fire({
-            title: 'Delete Document?',
-            text: 'This cannot be undone',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#FF5E5E',
-            confirmButtonText: 'Yes, Delete'
-        }).then(result => {
-            if (result.isConfirmed) {
-                const formData = new FormData();
-                formData.append('id', docId);
-                
-                fetch(`${APP_URL}/admin/clients/document-delete.php`, {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        Swal.fire('✅ Deleted!', 'Document deleted', 'success');
-                        loadTabData('documents', document.getElementById('documents'));
-                    } else {
-                        Swal.fire('Error', data.error || 'Delete failed', 'error');
-                    }
-                });
-            }
-        });
-    };
-
-    // ========== DOCUMENT UPLOAD HANDLER (LEGACY) ==========
-    // (Removed - using attachDocumentUploadHandler instead)
-
-    // ========== SERVICE EXPIRY NOTIFICATION ==========
-    window.notifyServiceExpiry = function(serviceId, type, button) {
-        const btn = button;
-        const originalText = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-
-        fetch('<?php echo APP_URL; ?>/admin/clients/notify-service-expiry.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: `service_id=${serviceId}&client_id=${CLIENT_ID}&type=${type}`
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                const typeIcon = type === 'whatsapp' ? '💬' : '📧';
-                alert(`✅ ${typeIcon} ${data.message}`);
-                btn.style.opacity = '0.6';
-                btn.disabled = true;
-            } else {
-                alert('❌ Error: ' + (data.error || 'Notification failed'));
-            }
-        })
-        .catch(err => {
-            console.error('Notification error:', err);
-            alert('❌ Error: ' + err.message);
-        })
-        .finally(() => {
-            btn.innerHTML = originalText;
-            if (!btn.disabled || btn.style.opacity !== '0.6') {
-                btn.disabled = false;
-            }
-        });
-    };
-
-    // ========== MEETING NOTES MANAGEMENT ==========
-    window.toggleMeetingNotes = function(meetingId) {
-        const notesSection = document.getElementById(`notes-section-${meetingId}`);
-        if (notesSection) {
-            notesSection.style.display = notesSection.style.display === 'none' ? 'block' : 'none';
-        }
-    };
-
-    window.saveMeetingNotes = function(meetingId) {
-        const textarea = document.getElementById(`notes-content-${meetingId}`);
-        if (!textarea) return;
-
-        const notes = textarea.value;
-        const btn = event.target.closest('button');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-        btn.disabled = true;
-
-        fetch('<?php echo APP_URL; ?>/admin/clients/meeting-notes.php?action=save_notes', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: `meeting_id=${meetingId}&client_id=${CLIENT_ID}&notes=${encodeURIComponent(notes)}`
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                alert('✅ Meeting notes saved successfully!');
-                textarea.style.borderColor = '#2BC155';
-                setTimeout(() => {
-                    textarea.style.borderColor = '#ddd';
-                }, 2000);
-            } else {
-                alert('❌ Error: ' + (data.error || 'Failed to save notes'));
-            }
-        })
-        .catch(err => {
-            console.error('Save error:', err);
-            alert('❌ Error: ' + err.message);
-        })
-        .finally(() => {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-        });
-    };</script>
+</script>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
