@@ -41,6 +41,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($tab === 'appearance') {
                 updateSetting('primary_color', $_POST['primary_color'] ?? '#6418C3');
                 updateSetting('theme_mode', $_POST['theme_mode'] ?? 'light');
+            } elseif ($tab === 'company') {
+                updateSetting('company_name', $_POST['company_name'] ?? '');
+                updateSetting('company_address', $_POST['company_address'] ?? '');
+                updateSetting('company_phone', $_POST['company_phone'] ?? '');
+                updateSetting('company_email', sanitizeEmail($_POST['company_email'] ?? ''));
+                updateSetting('company_website', $_POST['company_website'] ?? '');
+                updateSetting('company_registration', $_POST['company_registration'] ?? '');
+                updateSetting('company_tax_id', $_POST['company_tax_id'] ?? '');
+                updateSetting('support_phone', $_POST['support_phone'] ?? '');
+                updateSetting('support_email', sanitizeEmail($_POST['support_email'] ?? ''));
+                updateSetting('support_address', $_POST['support_address'] ?? '');
+                updateSetting('support_hours', $_POST['support_hours'] ?? '');
+                updateSetting('bank_name', $_POST['bank_name'] ?? '');
+                updateSetting('bank_account', $_POST['bank_account'] ?? '');
+                updateSetting('facebook_url', $_POST['facebook_url'] ?? '');
+                updateSetting('linkedin_url', $_POST['linkedin_url'] ?? '');
+                updateSetting('twitter_url', $_POST['twitter_url'] ?? '');
             }
             
             setFlash('success', 'Settings updated successfully!');
@@ -231,6 +248,9 @@ include __DIR__ . '/../../includes/header.php';
         <a href="#appearance" class="settings-nav-item" data-tab="appearance">
             <i class="fas fa-palette"></i> Appearance
         </a>
+        <a href="#company" class="settings-nav-item" data-tab="company">
+            <i class="fas fa-building"></i> Company
+        </a>
         <a href="#permissions" class="settings-nav-item" data-tab="permissions">
             <i class="fas fa-lock"></i> Permissions
         </a>
@@ -386,6 +406,129 @@ include __DIR__ . '/../../includes/header.php';
                 </div>
 
                 <button type="submit" class="btn-save"><i class="fas fa-check"></i> Save Changes</button>
+            </form>
+        </div>
+
+        <!-- COMPANY TAB -->
+        <div id="company" class="settings-panel">
+            <h3 style="margin-top: 0;"><i class="fas fa-building"></i> Company Information</h3>
+            <form method="POST">
+                <?php echo csrfField(); ?>
+                <input type="hidden" name="tab" value="company">
+
+                <div style="background: #f0f9ff; border-left: 4px solid #1EAAE7; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+                    <p style="margin: 0; color: #0c5460; font-size: 0.9rem;">
+                        <i class="fas fa-info-circle"></i> This information will be used in professional email templates and alert messages sent to clients.
+                    </p>
+                </div>
+
+                <!-- COMPANY BASIC INFO -->
+                <fieldset style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                    <legend style="font-weight: 600; color: #1D1D1D; padding: 0 10px;">📋 Company Details</legend>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Company Name *</label>
+                            <input type="text" name="company_name" value="<?php echo clean(getSetting('company_name', '')); ?>" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Company Website</label>
+                            <input type="url" name="company_website" value="<?php echo clean(getSetting('company_website', '')); ?>" placeholder="https://www.example.com">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Company Address *</label>
+                        <textarea name="company_address" rows="3" required><?php echo clean(getSetting('company_address', '')); ?></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Registration Number</label>
+                            <input type="text" name="company_registration" value="<?php echo clean(getSetting('company_registration', '')); ?>" placeholder="e.g., NTN-1234567-8">
+                        </div>
+                        <div class="form-group">
+                            <label>Tax ID / VAT Number</label>
+                            <input type="text" name="company_tax_id" value="<?php echo clean(getSetting('company_tax_id', '')); ?>" placeholder="e.g., VAT-9876543-0">
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- CONTACT INFO -->
+                <fieldset style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                    <legend style="font-weight: 600; color: #1D1D1D; padding: 0 10px;">📞 Contact Information</legend>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Company Email *</label>
+                            <input type="email" name="company_email" value="<?php echo clean(getSetting('company_email', '')); ?>" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Company Phone *</label>
+                            <input type="tel" name="company_phone" value="<?php echo clean(getSetting('company_phone', '')); ?>" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Support Phone *</label>
+                            <input type="tel" name="support_phone" value="<?php echo clean(getSetting('support_phone', '')); ?>" placeholder="+92-300-0000000" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Support Email *</label>
+                            <input type="email" name="support_email" value="<?php echo clean(getSetting('support_email', '')); ?>" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Support Address</label>
+                        <textarea name="support_address" rows="2"><?php echo clean(getSetting('support_address', '')); ?></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Support Hours (e.g., Mon-Fri: 9 AM - 6 PM)</label>
+                        <input type="text" name="support_hours" value="<?php echo clean(getSetting('support_hours', '')); ?>" placeholder="Mon-Fri: 9 AM - 6 PM">
+                    </div>
+                </fieldset>
+
+                <!-- BANKING INFO -->
+                <fieldset style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                    <legend style="font-weight: 600; color: #1D1D1D; padding: 0 10px;">🏦 Banking Details (Optional)</legend>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Bank Name</label>
+                            <input type="text" name="bank_name" value="<?php echo clean(getSetting('bank_name', '')); ?>" placeholder="e.g., HBL, UBL, NBP">
+                        </div>
+                        <div class="form-group">
+                            <label>Bank Account Number</label>
+                            <input type="text" name="bank_account" value="<?php echo clean(getSetting('bank_account', '')); ?>" placeholder="IBAN or Account Number">
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- SOCIAL MEDIA -->
+                <fieldset style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                    <legend style="font-weight: 600; color: #1D1D1D; padding: 0 10px;">🌐 Social Media (Optional)</legend>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label><i class="fab fa-facebook"></i> Facebook URL</label>
+                            <input type="url" name="facebook_url" value="<?php echo clean(getSetting('facebook_url', '')); ?>" placeholder="https://facebook.com/...">
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fab fa-linkedin"></i> LinkedIn URL</label>
+                            <input type="url" name="linkedin_url" value="<?php echo clean(getSetting('linkedin_url', '')); ?>" placeholder="https://linkedin.com/...">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fab fa-twitter"></i> Twitter URL</label>
+                        <input type="url" name="twitter_url" value="<?php echo clean(getSetting('twitter_url', '')); ?>" placeholder="https://twitter.com/...">
+                    </div>
+                </fieldset>
+
+                <button type="submit" class="btn-save"><i class="fas fa-check"></i> Save Company Information</button>
             </form>
         </div>
 

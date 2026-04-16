@@ -24,20 +24,42 @@ $stmt = $db->prepare("
         SUM(paid_amount) as revenue
     FROM invoices
     WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+    AND paid_amount > 0
     GROUP BY DATE_FORMAT(created_at, '%Y-%m')
     ORDER BY created_at ASC
 ");
 $stmt->execute();
 $revenueData = $stmt->fetchAll();
 
-// Project status data
+// Project status data - Fixed
 $stmt = $db->prepare("
     SELECT status, COUNT(*) as count
     FROM projects
     GROUP BY status
+    ORDER BY FIELD(status, 'in_progress', 'pending', 'completed', 'on_hold')
 ");
 $stmt->execute();
 $projectStatus = $stmt->fetchAll();
+
+// Client status data
+$stmt = $db->prepare("
+    SELECT client_status, COUNT(*) as count
+    FROM clients
+    GROUP BY client_status
+    ORDER BY FIELD(client_status, 'active', 'inactive', 'suspended')
+");
+$stmt->execute();
+$clientStatus = $stmt->fetchAll();
+
+// Service status data
+$stmt = $db->prepare("
+    SELECT status, COUNT(*) as count
+    FROM project_services
+    GROUP BY status
+    ORDER BY FIELD(status, 'active', 'expired', 'cancelled')
+");
+$stmt->execute();
+$serviceStatus = $stmt->fetchAll();
 
 // Expiring services
 $expiringServices = checkExpiringServices();
@@ -144,8 +166,18 @@ include __DIR__ . '/../includes/header.php';
 
     .chart-container {
         position: relative;
-        height: 300px;
+        width: 100%;
         margin-bottom: 20px;
+    }
+
+    #revenueChart {
+        width: 100% !important;
+    }
+
+    #projectStatusChart,
+    #clientStatusChart,
+    #serviceStatusChart {
+        width: 100% !important;
     }
 
     .activity-timeline {
@@ -272,14 +304,34 @@ include __DIR__ . '/../includes/header.php';
     }
 </style>
 
-<!-- STAT CARDS ROW -->
+<!-- STAT CARDS ROW 1 -->
 <div class="row mb-4">
     <div class="col-lg-3 col-md-6 mb-3">
         <div class="stat-card stat-card-gradient-1">
             <div class="stat-label">Total Clients</div>
             <div class="stat-number"><?php echo $stats['total_clients']; ?></div>
             <span class="stat-trend positive">
-                <i class="fas fa-arrow-up"></i> +0.5%
+                <i class="fas fa-users"></i> All Clients
+            </span>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="stat-card stat-card-gradient-2">
+            <div class="stat-label">Active Clients</div>
+            <div class="stat-number"><?php echo $stats['active_clients']; ?></div>
+            <span class="stat-trend positive">
+                <i class="fas fa-check-circle"></i> Active Status
+            </span>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="stat-card" style="background: linear-gradient(135deg, #1EAAE7, #3498DB);">
+            <div class="stat-label">Total Projects</div>
+            <div class="stat-number"><?php echo $stats['total_projects']; ?></div>
+            <span class="stat-trend positive">
+                <i class="fas fa-project-diagram"></i> All Time
             </span>
         </div>
     </div>
@@ -289,17 +341,30 @@ include __DIR__ . '/../includes/header.php';
             <div class="stat-label">Active Projects</div>
             <div class="stat-number"><?php echo $stats['active_projects']; ?></div>
             <span class="stat-trend positive">
-                <i class="fas fa-arrow-up"></i> +2.1%
+                <i class="fas fa-hourglass-start"></i> In Progress
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- STAT CARDS ROW 2 -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="stat-card stat-card-gradient-3">
+            <div class="stat-label">Active Services</div>
+            <div class="stat-number"><?php echo $stats['active_services']; ?></div>
+            <span class="stat-trend <?php echo $stats['expiring_services'] > 0 ? 'negative' : 'positive'; ?>">
+                <i class="fas fa-exclamation-circle"></i> <?php echo $stats['expiring_services']; ?> Expiring
             </span>
         </div>
     </div>
 
     <div class="col-lg-3 col-md-6 mb-3">
-        <div class="stat-card stat-card-gradient-3">
-            <div class="stat-label">Unpaid Invoices</div>
-            <div class="stat-number"><?php echo $stats['unpaid_invoices']; ?></div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #FF5E5E, #E74C3C);">
+            <div class="stat-label">Expired Services</div>
+            <div class="stat-number"><?php echo $stats['expired_services']; ?></div>
             <span class="stat-trend negative">
-                <i class="fas fa-arrow-down"></i> -1.2%
+                <i class="fas fa-times-circle"></i> Need Renewal
             </span>
         </div>
     </div>
@@ -309,38 +374,72 @@ include __DIR__ . '/../includes/header.php';
             <div class="stat-label">Total Revenue</div>
             <div class="stat-number"><?php echo formatCurrency($stats['total_revenue']); ?></div>
             <span class="stat-trend positive">
-                <i class="fas fa-arrow-up"></i> +3.4%
+                <i class="fas fa-check-circle"></i> Paid
+            </span>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="stat-card" style="background: linear-gradient(135deg, #FF9B52, #E67E22);">
+            <div class="stat-label">Pending Revenue</div>
+            <div class="stat-number"><?php echo formatCurrency($stats['pending_revenue']); ?></div>
+            <span class="stat-trend negative">
+                <i class="fas fa-clock"></i> <?php echo $stats['unpaid_invoices']; ?> Unpaid
             </span>
         </div>
     </div>
 </div>
 
-<!-- CHARTS ROW -->
+</div>
+
+<!-- REVENUE CHART ROW - FIRST AND FULL WIDTH -->
 <div class="row mb-4">
-    <!-- Revenue Chart -->
-    <div class="col-lg-8">
+    <div class="col-lg-12">
         <div class="card">
             <div class="card-header">
-                <i class="fas fa-chart-area"></i> Revenue Overview (Last 6 months)
+                <i class="fas fa-chart-line"></i> Revenue Overview (Last 6 months)
             </div>
             <div class="card-body">
-                <div class="chart-container">
-                    <canvas id="revenueChart"></canvas>
-                </div>
+                <div id="revenueChart" style="min-height: 400px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- STATUS BREAKDOWN CHARTS ROW -->
+<div class="row mb-4">
+    <!-- Projects by Status -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-project-diagram"></i> Projects by Status
+            </div>
+            <div class="card-body">
+                <div id="projectStatusChart" style="min-height: 320px;"></div>
             </div>
         </div>
     </div>
 
-    <!-- Project Status Chart -->
+    <!-- Clients by Status -->
     <div class="col-lg-4">
         <div class="card">
             <div class="card-header">
-                <i class="fas fa-pie-chart"></i> Project Status
+                <i class="fas fa-users"></i> Clients by Status
             </div>
             <div class="card-body">
-                <div class="chart-container">
-                    <canvas id="projectStatusChart"></canvas>
-                </div>
+                <div id="clientStatusChart" style="min-height: 320px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Services by Status -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-cogs"></i> Services by Status
+            </div>
+            <div class="card-body">
+                <div id="serviceStatusChart" style="min-height: 320px;"></div>
             </div>
         </div>
     </div>
@@ -354,6 +453,7 @@ include __DIR__ . '/../includes/header.php';
             <div class="card-header">
                 <i class="fas fa-exclamation-triangle" style="color: #FF9B52;"></i> 
                 Service Expiry Alerts (Next 30 Days)
+                <a href="<?php echo APP_URL; ?>/admin/alerts/index.php" class="float-end text-decoration-none" style="font-size: 0.85rem;">View all →</a>
             </div>
             <div class="card-body">
                 <?php if (count($expiringServices) > 0): ?>
@@ -361,12 +461,12 @@ include __DIR__ . '/../includes/header.php';
                     <table class="table table-hover" style="margin-bottom: 0;">
                         <thead>
                             <tr>
-                                <th>Client</th>
                                 <th>Service</th>
+                                <th>Project</th>
+                                <th>Client</th>
                                 <th>Expiry Date</th>
                                 <th>Days Left</th>
                                 <th>Status</th>
-                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -376,9 +476,14 @@ include __DIR__ . '/../includes/header.php';
                             ?>
                             <tr>
                                 <td>
-                                    <strong><?php echo clean($service['client_name']); ?></strong>
+                                    <strong><?php echo htmlspecialchars($service['service_name']); ?></strong>
                                 </td>
-                                <td><?php echo clean($service['service_name']); ?></td>
+                                <td>
+                                    <span style="background: #E8D7F1; color: #6418C3; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">
+                                        <?php echo htmlspecialchars($service['project_name']); ?>
+                                    </span>
+                                </td>
+                                <td><?php echo htmlspecialchars($service['client_name']); ?></td>
                                 <td><?php echo formatDate($service['expiry_date']); ?></td>
                                 <td>
                                     <span class="expiry-badge <?php echo $badgeClass; ?>">
@@ -386,14 +491,6 @@ include __DIR__ . '/../includes/header.php';
                                     </span>
                                 </td>
                                 <td><?php echo statusBadge($service['status']); ?></td>
-                                <td>
-                                    <button class="btn btn-sm btn-success btn-action" title="Send WhatsApp Alert">
-                                        <i class="fab fa-whatsapp"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-primary btn-action" title="Send Email">
-                                        <i class="fas fa-envelope"></i>
-                                    </button>
-                                </td>
                             </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -548,30 +645,85 @@ include __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
-<!-- ApexCharts Script -->
+<!-- ApexCharts CDN -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@latest/dist/apexcharts.min.js"></script>
+
 <script>
-    // Revenue Chart
-    <?php
-    $months = [];
-    $revenues = [];
-    foreach ($revenueData as $data) {
-        $months[] = $data['month'];
-        $revenues[] = round($data['revenue'], 2);
-    }
-    ?>
-    const revenueChart = new ApexCharts(document.querySelector("#revenueChart"), {
+// Prepare data from PHP
+<?php
+$months = [];
+$revenues = [];
+foreach ($revenueData as $data) {
+    $months[] = $data['month'];
+    $revenues[] = floatval($data['revenue']);
+}
+
+$projectLabels = [];
+$projectData = [];
+foreach ($projectStatus as $data) {
+    $projectLabels[] = ucfirst($data['status']);
+    $projectData[] = intval($data['count']);
+}
+
+$clientLabels = [];
+$clientData = [];
+foreach ($clientStatus as $data) {
+    $clientLabels[] = ucfirst($data['client_status']);
+    $clientData[] = intval($data['count']);
+}
+
+$serviceLabels = [];
+$serviceData = [];
+foreach ($serviceStatus as $data) {
+    $serviceLabels[] = ucfirst($data['status']);
+    $serviceData[] = intval($data['count']);
+}
+?>
+
+// Initialize charts after DOM is ready
+function initCharts() {
+    // 1. REVENUE OVERVIEW - Area Chart (MAIN CHART)
+    var revenueChart = new ApexCharts(document.querySelector("#revenueChart"), {
         series: [{
-            name: 'Revenue',
+            name: 'Revenue (PKR)',
             data: <?php echo json_encode($revenues); ?>
         }],
         chart: {
             type: 'area',
-            height: 300,
-            sparkline: { enabled: false }
+            height: 380,
+            fontFamily: 'Inter, sans-serif',
+            sparkline: { enabled: false },
+            toolbar: {
+                show: true,
+                tools: {
+                    download: true,
+                    selection: true,
+                    zoom: true,
+                    zoomin: true,
+                    zoomout: true,
+                    pan: true,
+                    reset: true
+                }
+            },
+            animations: {
+                enabled: true,
+                speed: 800,
+                animateGradually: {
+                    enabled: true,
+                    delay: 150
+                },
+                dynamicAnimation: {
+                    enabled: true,
+                    speed: 150
+                }
+            }
         },
         colors: ['#6418C3'],
-        dataLabels: { enabled: false },
-        stroke: { curve: 'smooth', width: 2 },
+        stroke: {
+            curve: 'smooth',
+            width: 3,
+            lineCap: 'round'
+        },
         fill: {
             type: 'gradient',
             gradient: {
@@ -581,51 +733,266 @@ include __DIR__ . '/../includes/header.php';
                 stops: [20, 100, 100, 100]
             }
         },
+        dataLabels: { enabled: false },
         xaxis: {
-            categories: <?php echo json_encode($months); ?>
+            categories: <?php echo json_encode($months); ?>,
+            title: { text: 'Month', style: { fontSize: '12px', fontWeight: 600 } },
+            tickPlacement: 'on',
+            axisBorder: { show: true, color: '#f0f0f0' },
+            axisTicks: { show: true, color: '#f0f0f0' }
         },
         yaxis: {
-            title: { text: 'Revenue' }
-        },
-        tooltip: {
-            y: {
+            title: { text: 'Revenue (PKR)', style: { fontSize: '12px', fontWeight: 600 } },
+            labels: {
                 formatter: function(val) {
-                    return CURRENCY_SYMBOL + val.toLocaleString('en-PK', {minimumFractionDigits: 2});
+                    return CURRENCY_SYMBOL + (val >= 1000 ? (val/1000).toFixed(0) + 'K' : val.toFixed(0));
                 }
             }
-        }
+        },
+        tooltip: {
+            theme: 'light',
+            style: { fontSize: '12px' },
+            y: {
+                formatter: function(val) {
+                    return CURRENCY_SYMBOL + val.toLocaleString('en-PK', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                }
+            },
+            marker: { show: true }
+        },
+        grid: {
+            borderColor: '#f1f1f1',
+            padding: { left: 0, right: 0 }
+        },
+        responsive: [{
+            breakpoint: 1400,
+            options: { chart: { height: 350 } }
+        }, {
+            breakpoint: 1024,
+            options: { chart: { height: 320 } }
+        }, {
+            breakpoint: 768,
+            options: { chart: { height: 280 } }
+        }]
     });
     revenueChart.render();
 
-    // Project Status Chart
-    <?php
-    $statuses = [];
-    $counts = [];
-    foreach ($projectStatus as $data) {
-        $statuses[] = ucfirst(str_replace('_', ' ', $data['status']));
-        $counts[] = $data['count'];
-    }
-    ?>
-    const projectStatusChart = new ApexCharts(document.querySelector("#projectStatusChart"), {
-        series: <?php echo json_encode($counts); ?>,
-        labels: <?php echo json_encode($statuses); ?>,
+    // 2. PROJECTS BY STATUS - Donut Chart
+    var projectChart = new ApexCharts(document.querySelector("#projectStatusChart"), {
+        series: <?php echo json_encode($projectData); ?>,
+        labels: <?php echo json_encode($projectLabels); ?>,
         chart: {
             type: 'donut',
-            height: 300
+            height: 300,
+            fontFamily: 'Inter, sans-serif',
+            sparkline: { enabled: false },
+            animations: {
+                enabled: true,
+                speed: 800
+            }
         },
-        colors: ['#6418C3', '#1EAAE7', '#FF9B52', '#2BC155'],
+        colors: ['#6418C3', '#FF9B52', '#2BC155', '#1EAAE7'],
+        plotOptions: {
+            pie: {
+                donut: {
+                    size: '70%',
+                    labels: {
+                        show: true,
+                        name: {
+                            show: true,
+                            fontSize: '14px',
+                            fontWeight: 600,
+                            color: '#333'
+                        },
+                        value: {
+                            show: true,
+                            fontSize: '18px',
+                            fontWeight: 700,
+                            color: '#6418C3'
+                        },
+                        total: {
+                            show: true,
+                            label: 'Total Projects',
+                            fontSize: '12px',
+                            color: '#6418C3'
+                        }
+                    }
+                }
+            }
+        },
         dataLabels: {
             enabled: true,
-            formatter: function(val) {
-                return val.toFixed(0) + '%';
+            dropShadow: { enabled: false },
+            style: {
+                fontSize: '12px',
+                fontWeight: '600',
+                colors: ['#fff']
             }
         },
         legend: {
             position: 'bottom',
-            fontSize: '12px'
+            fontSize: '12px',
+            labels: { colors: '#666' },
+            markers: { width: 10, height: 10, radius: 2 }
+        },
+        tooltip: {
+            theme: 'light',
+            style: { fontSize: '12px' },
+            y: {
+                formatter: function(val) {
+                    return val + ' project' + (val !== 1 ? 's' : '');
+                }
+            }
         }
     });
-    projectStatusChart.render();
+    projectChart.render();
+
+    // 3. CLIENTS BY STATUS - Donut Chart
+    var clientChart = new ApexCharts(document.querySelector("#clientStatusChart"), {
+        series: <?php echo json_encode($clientData); ?>,
+        labels: <?php echo json_encode($clientLabels); ?>,
+        chart: {
+            type: 'donut',
+            height: 300,
+            fontFamily: 'Inter, sans-serif',
+            sparkline: { enabled: false },
+            animations: {
+                enabled: true,
+                speed: 800
+            }
+        },
+        colors: ['#2BC155', '#FF5E5E', '#FFC107'],
+        plotOptions: {
+            pie: {
+                donut: {
+                    size: '70%',
+                    labels: {
+                        show: true,
+                        name: {
+                            show: true,
+                            fontSize: '14px',
+                            fontWeight: 600,
+                            color: '#333'
+                        },
+                        value: {
+                            show: true,
+                            fontSize: '18px',
+                            fontWeight: 700,
+                            color: '#2BC155'
+                        },
+                        total: {
+                            show: true,
+                            label: 'Total Clients',
+                            fontSize: '12px',
+                            color: '#2BC155'
+                        }
+                    }
+                }
+            }
+        },
+        dataLabels: {
+            enabled: true,
+            dropShadow: { enabled: false },
+            style: {
+                fontSize: '12px',
+                fontWeight: '600',
+                colors: ['#fff']
+            }
+        },
+        legend: {
+            position: 'bottom',
+            fontSize: '12px',
+            labels: { colors: '#666' },
+            markers: { width: 10, height: 10, radius: 2 }
+        },
+        tooltip: {
+            theme: 'light',
+            style: { fontSize: '12px' },
+            y: {
+                formatter: function(val) {
+                    return val + ' client' + (val !== 1 ? 's' : '');
+                }
+            }
+        }
+    });
+    clientChart.render();
+
+    // 4. SERVICES BY STATUS - Donut Chart
+    var serviceChart = new ApexCharts(document.querySelector("#serviceStatusChart"), {
+        series: <?php echo json_encode($serviceData); ?>,
+        labels: <?php echo json_encode($serviceLabels); ?>,
+        chart: {
+            type: 'donut',
+            height: 300,
+            fontFamily: 'Inter, sans-serif',
+            sparkline: { enabled: false },
+            animations: {
+                enabled: true,
+                speed: 800
+            }
+        },
+        colors: ['#2BC155', '#FF5E5E', '#999'],
+        plotOptions: {
+            pie: {
+                donut: {
+                    size: '70%',
+                    labels: {
+                        show: true,
+                        name: {
+                            show: true,
+                            fontSize: '14px',
+                            fontWeight: 600,
+                            color: '#333'
+                        },
+                        value: {
+                            show: true,
+                            fontSize: '18px',
+                            fontWeight: 700,
+                            color: '#FF5E5E'
+                        },
+                        total: {
+                            show: true,
+                            label: 'Total Services',
+                            fontSize: '12px',
+                            color: '#FF5E5E'
+                        }
+                    }
+                }
+            }
+        },
+        dataLabels: {
+            enabled: true,
+            dropShadow: { enabled: false },
+            style: {
+                fontSize: '12px',
+                fontWeight: '600',
+                colors: ['#fff']
+            }
+        },
+        legend: {
+            position: 'bottom',
+            fontSize: '12px',
+            labels: { colors: '#666' },
+            markers: { width: 10, height: 10, radius: 2 }
+        },
+        tooltip: {
+            theme: 'light',
+            style: { fontSize: '12px' },
+            y: {
+                formatter: function(val) {
+                    return val + ' service' + (val !== 1 ? 's' : '');
+                }
+            }
+        }
+    });
+    serviceChart.render();
+}
+
+// Call function when DOM is loaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCharts);
+} else {
+    initCharts();
+}
 </script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

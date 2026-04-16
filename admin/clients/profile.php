@@ -773,36 +773,7 @@ include __DIR__ . '/../../includes/header.php';
 
             <!-- TAB: DOCUMENTS (AJAX) -->
             <div id="documents" class="tab-pane fade" role="tabpanel" data-tab="documents">
-                <!-- Upload Form - Always Visible -->
-                <div style="margin-bottom: 25px;">
-                    <div style="background: linear-gradient(135deg, #6418C3, #9B59B6); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-                        <h5 style="margin: 0 0 15px 0;"><i class="fas fa-cloud-upload-alt"></i> Upload New Document</h5>
-                        <form id="uploadDocumentForm" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;">
-                            <div style="flex: 1; min-width: 200px;">
-                                <label style="display: block; color: #f0f0f0; font-size: 0.85rem; margin-bottom: 5px; font-weight: 600;">Document Name</label>
-                                <input type="text" id="docName" name="document_name" placeholder="e.g., Contract, Agreement" style="width: 100%; padding: 10px; border: none; border-radius: 6px; font-size: 0.9rem;" required>
-                            </div>
-                            <div style="flex: 1; min-width: 150px;">
-                                <label style="display: block; color: #f0f0f0; font-size: 0.85rem; margin-bottom: 5px; font-weight: 600;">Type</label>
-                                <select id="docType" name="document_type" style="width: 100%; padding: 10px; border: none; border-radius: 6px; font-size: 0.9rem;">
-                                    <option value="contract">📋 Contract</option>
-                                    <option value="agreement">📝 Agreement</option>
-                                    <option value="invoice">📄 Invoice</option>
-                                    <option value="certificate">🏆 Certificate</option>
-                                    <option value="other">📎 Other</option>
-                                </select>
-                            </div>
-                            <div style="flex: 1; min-width: 150px;">
-                                <label style="display: block; color: #f0f0f0; font-size: 0.85rem; margin-bottom: 5px; font-weight: 600;">File</label>
-                                <input type="file" id="docFile" name="file" style="width: 100%; padding: 10px; border: 2px solid rgba(255,255,255,0.3); border-radius: 6px; font-size: 0.9rem; color: white; background: rgba(255,255,255,0.1);" required>
-                            </div>
-                            <button type="submit" style="background: white; color: #6418C3; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: all 0.3s;">
-                                <i class="fas fa-upload"></i> Upload
-                            </button>
-                        </form>
-                        <p style="margin: 12px 0 0 0; font-size: 0.8rem; opacity: 0.9;">Supported: PDF, Word, Images (Max 10MB)</p>
-                    </div>
-                </div>
+
 
                 <!-- Documents List - Loaded via AJAX -->
                 <div id="documentsContent">
@@ -1182,12 +1153,12 @@ include __DIR__ . '/../../includes/header.php';
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
-        fetch('<?php echo APP_URL; ?>/admin/clients/notify-service-expiry.php', {
+        fetch('<?php echo APP_URL; ?>/admin/api/send-service-alert.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
-            body: `service_id=${serviceId}&client_id=${CLIENT_ID}&type=${type}`
+            body: `service_id=${serviceId}&client_id=${CLIENT_ID}&alert_method=${type}`
         })
         .then(r => r.json())
         .then(data => {
@@ -1256,6 +1227,264 @@ include __DIR__ . '/../../includes/header.php';
         .finally(() => {
             btn.innerHTML = originalText;
             btn.disabled = false;
+        });
+    };
+
+    // ========== DOCUMENT BANK VIEW ==========
+    window.viewDocBank = function(docId) {
+        const APP_URL = '<?php echo APP_URL; ?>';
+        
+        fetch(`${APP_URL}/admin/api/get-documents.php?id=${docId}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.documents && data.documents.length > 0) {
+                    const doc = data.documents[0];
+                    const fileExt = doc.file_path.split('.').pop().toLowerCase();
+                    let content = '';
+                    
+                    // Check file type and display appropriate viewer
+                    if (['jpg', 'jpeg', 'png', 'webp'].includes(fileExt)) {
+                        content = `<img src="${APP_URL}/admin/api/download-document.php?id=${docId}" style="max-width: 100%; max-height: 500px; border-radius: 6px;">`;
+                    } else if (fileExt === 'pdf') {
+                        content = `<iframe src="${APP_URL}/admin/api/download-document.php?id=${docId}" style="width: 100%; height: 500px; border: 1px solid #ddd; border-radius: 6px;"></iframe>`;
+                    } else {
+                        content = `<p style="text-align: center; color: #666; padding: 20px;">Preview not available for this file type</p>`;
+                    }
+                    
+                    Swal.fire({
+                        title: doc.document_title,
+                        html: `
+                            <div style="text-align: center;">
+                                ${content}
+                                <div style="margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 6px; text-align: left; font-size: 0.9rem;">
+                                    <p><strong>File:</strong> ${doc.original_name || doc.file_name}</p>
+                                    <p><strong>Size:</strong> ${formatFileSizeJS(doc.file_size)}</p>
+                                    <p><strong>Uploaded:</strong> ${new Date(doc.uploaded_at).toLocaleDateString()}</p>
+                                </div>
+                            </div>
+                        `,
+                        width: '800px',
+                        showConfirmButton: true,
+                        confirmButtonText: 'Close'
+                    });
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                Swal.fire('Error', 'Failed to load document', 'error');
+            });
+    };
+
+    // ========== DOCUMENT BANK DELETE ==========
+    window.deleteDocBank = function(docId) {
+        const APP_URL = '<?php echo APP_URL; ?>';
+        Swal.fire({
+            title: 'Delete Document?',
+            text: 'This action cannot be undone.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#FF5E5E',
+            confirmButtonText: 'Yes, Delete'
+        }).then(result => {
+            if (result.isConfirmed) {
+                const formData = new FormData();
+                formData.append('id', docId);
+                
+                fetch(`${APP_URL}/admin/api/delete-document.php`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire('✅ Deleted!', 'Document has been deleted', 'success');
+                        loadTabData('documents', document.getElementById('documents'));
+                    } else {
+                        Swal.fire('Error', data.error || 'Failed to delete document', 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    Swal.fire('Error', 'Failed to delete document', 'error');
+                });
+            }
+        });
+    };
+
+    // ========== HELPER FUNCTION: FORMAT FILE SIZE ==========
+    function formatFileSizeJS(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+    }
+
+    // ========== MEETING NOTES MANAGEMENT - NEW CARD FUNCTIONS ==========
+    window.openAddNoteModal = function(meetingId, meetingTitle) {
+        const APP_URL = '<?php echo APP_URL; ?>';
+        Swal.fire({
+            title: `Add Note to "${meetingTitle}"`,
+            html: '<textarea id="noteInput" placeholder="Enter meeting note..." style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9rem; resize: vertical; min-height: 100px;"></textarea>',
+            showCancelButton: true,
+            confirmButtonText: 'Add Note',
+            confirmButtonColor: '#6418C3',
+            preConfirm: () => {
+                const note = document.getElementById('noteInput').value.trim();
+                if (!note) {
+                    Swal.showValidationMessage('Please enter a note');
+                    return false;
+                }
+                return note;
+            }
+        }).then(result => {
+            if (result.isConfirmed) {
+                const formData = new FormData();
+                formData.append('meeting_id', meetingId);
+                formData.append('action', 'add_note');
+                formData.append('note', result.value);
+
+                fetch(`${APP_URL}/admin/clients/meeting-notes.php`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire('✅ Added!', 'Note added successfully', 'success');
+                        loadTabData('meetings', document.getElementById('meetings'));
+                    } else {
+                        Swal.fire('Error', data.error || 'Failed to add note', 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    Swal.fire('Error', 'Failed to add note', 'error');
+                });
+            }
+        });
+    };
+
+    window.editMeetingNote = function(meetingId, noteIndex, noteText) {
+        const APP_URL = '<?php echo APP_URL; ?>';
+        Swal.fire({
+            title: 'Edit Note',
+            html: '<textarea id="noteEditInput" placeholder="Edit meeting note..." style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9rem; resize: vertical; min-height: 100px;">' + noteText + '</textarea>',
+            showCancelButton: true,
+            confirmButtonText: 'Update Note',
+            confirmButtonColor: '#1EAAE7',
+            preConfirm: () => {
+                const note = document.getElementById('noteEditInput').value.trim();
+                if (!note) {
+                    Swal.showValidationMessage('Please enter a note');
+                    return false;
+                }
+                return note;
+            }
+        }).then(result => {
+            if (result.isConfirmed) {
+                const formData = new FormData();
+                formData.append('meeting_id', meetingId);
+                formData.append('action', 'edit_note');
+                formData.append('note_index', noteIndex);
+                formData.append('note', result.value);
+
+                fetch(`${APP_URL}/admin/clients/meeting-notes.php`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire('✅ Updated!', 'Note updated successfully', 'success');
+                        loadTabData('meetings', document.getElementById('meetings'));
+                    } else {
+                        Swal.fire('Error', data.error || 'Failed to update note', 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    Swal.fire('Error', 'Failed to update note', 'error');
+                });
+            }
+        });
+    };
+
+    window.deleteMeetingNote = function(meetingId, noteIndex) {
+        const APP_URL = '<?php echo APP_URL; ?>';
+        Swal.fire({
+            title: 'Delete Note?',
+            text: 'This note will be removed permanently',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#FF5E5E',
+            confirmButtonText: 'Yes, Delete'
+        }).then(result => {
+            if (result.isConfirmed) {
+                const formData = new FormData();
+                formData.append('meeting_id', meetingId);
+                formData.append('action', 'delete_note');
+                formData.append('note_index', noteIndex);
+
+                fetch(`${APP_URL}/admin/clients/meeting-notes.php`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire('✅ Deleted!', 'Note deleted successfully', 'success');
+                        loadTabData('meetings', document.getElementById('meetings'));
+                    } else {
+                        Swal.fire('Error', data.error || 'Failed to delete note', 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    Swal.fire('Error', 'Failed to delete note', 'error');
+                });
+            }
+        });
+    };
+
+    window.editMeeting = function(meetingId) {
+        const APP_URL = '<?php echo APP_URL; ?>';
+        alert('Edit meeting feature coming soon!');
+    };
+
+    window.deleteMeeting = function(meetingId, meetingTitle) {
+        const APP_URL = '<?php echo APP_URL; ?>';
+        Swal.fire({
+            title: 'Delete Meeting?',
+            text: `"${meetingTitle}" will be permanently removed`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#FF5E5E',
+            confirmButtonText: 'Yes, Delete'
+        }).then(result => {
+            if (result.isConfirmed) {
+                const formData = new FormData();
+                formData.append('meeting_id', meetingId);
+                formData.append('action', 'delete_meeting');
+
+                fetch(`${APP_URL}/admin/clients/meeting-notes.php`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire('✅ Deleted!', 'Meeting deleted successfully', 'success');
+                        loadTabData('meetings', document.getElementById('meetings'));
+                    } else {
+                        Swal.fire('Error', data.error || 'Failed to delete meeting', 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    Swal.fire('Error', 'Failed to delete meeting', 'error');
+                });
+            }
         });
     };</script>
 

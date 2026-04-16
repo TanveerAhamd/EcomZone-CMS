@@ -438,33 +438,83 @@ function getDashboardStats() {
     $stats = [];
     
     // Total Clients
-    $stmt = $db->prepare("SELECT COUNT(*) as count FROM clients");
+    $stmt = $db->prepare("SELECT COUNT(*) as count FROM clients WHERE client_status != 'suspended'");
     $stmt->execute();
     $stats['total_clients'] = $stmt->fetch()['count'];
+    
+    // Active Clients (with active projects)
+    $stmt = $db->prepare("SELECT COUNT(DISTINCT p.client_id) as count FROM projects p WHERE p.status IN ('pending', 'in_progress')");
+    $stmt->execute();
+    $stats['active_clients'] = $stmt->fetch()['count'];
+    
+    // Total Projects
+    $stmt = $db->prepare("SELECT COUNT(*) as count FROM projects WHERE status IN ('pending', 'in_progress', 'completed')");
+    $stmt->execute();
+    $stats['total_projects'] = $stmt->fetch()['count'];
     
     // Active Projects
     $stmt = $db->prepare("SELECT COUNT(*) as count FROM projects WHERE status IN ('pending', 'in_progress')");
     $stmt->execute();
     $stats['active_projects'] = $stmt->fetch()['count'];
     
-    // Unpaid Invoices
-    $stmt = $db->prepare("SELECT COUNT(*) as count FROM invoices WHERE status IN ('sent', 'partial', 'overdue')");
+    // Completed Projects
+    $stmt = $db->prepare("SELECT COUNT(*) as count FROM projects WHERE status = 'completed'");
     $stmt->execute();
-    $stats['unpaid_invoices'] = $stmt->fetch()['count'];
+    $stats['completed_projects'] = $stmt->fetch()['count'];
     
-    // Total Revenue (Paid Invoices)
-    $stmt = $db->prepare("SELECT COALESCE(SUM(paid_amount), 0) as total FROM invoices WHERE status = 'paid'");
+    // Total Services
+    $stmt = $db->prepare("SELECT COUNT(*) as count FROM project_services WHERE status IN ('active', 'expired')");
     $stmt->execute();
-    $stats['total_revenue'] = $stmt->fetch()['total'];
+    $stats['total_services'] = $stmt->fetch()['count'];
+    
+    // Active Services
+    $stmt = $db->prepare("SELECT COUNT(*) as count FROM project_services WHERE status = 'active'");
+    $stmt->execute();
+    $stats['active_services'] = $stmt->fetch()['count'];
     
     // Expiring Services (Next 30 days)
     $stmt = $db->prepare("
-        SELECT COUNT(*) as count FROM client_services
+        SELECT COUNT(*) as count FROM project_services
         WHERE status = 'active'
         AND expiry_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
     ");
     $stmt->execute();
     $stats['expiring_services'] = $stmt->fetch()['count'];
+    
+    // Expired Services
+    $stmt = $db->prepare("SELECT COUNT(*) as count FROM project_services WHERE status = 'expired'");
+    $stmt->execute();
+    $stats['expired_services'] = $stmt->fetch()['count'];
+    
+    // Total Invoices
+    $stmt = $db->prepare("SELECT COUNT(*) as count FROM invoices");
+    $stmt->execute();
+    $stats['total_invoices'] = $stmt->fetch()['count'];
+    
+    // Paid Invoices
+    $stmt = $db->prepare("SELECT COUNT(*) as count FROM invoices WHERE status = 'paid'");
+    $stmt->execute();
+    $stats['paid_invoices'] = $stmt->fetch()['count'];
+    
+    // Unpaid Invoices
+    $stmt = $db->prepare("SELECT COUNT(*) as count FROM invoices WHERE status IN ('sent', 'partial', 'overdue', 'draft')");
+    $stmt->execute();
+    $stats['unpaid_invoices'] = $stmt->fetch()['count'];
+    
+    // Total Revenue (All Invoices)
+    $stmt = $db->prepare("SELECT COALESCE(SUM(total), 0) as total FROM invoices");
+    $stmt->execute();
+    $stats['total_invoice_amount'] = $stmt->fetch()['total'];
+    
+    // Paid Revenue
+    $stmt = $db->prepare("SELECT COALESCE(SUM(paid_amount), 0) as total FROM invoices WHERE status = 'paid'");
+    $stmt->execute();
+    $stats['total_revenue'] = $stmt->fetch()['total'];
+    
+    // Pending Revenue (Unpaid)
+    $stmt = $db->prepare("SELECT COALESCE(SUM(CASE WHEN status IN ('sent', 'partial', 'overdue', 'draft') THEN total ELSE 0 END), 0) as total FROM invoices");
+    $stmt->execute();
+    $stats['pending_revenue'] = $stmt->fetch()['total'];
     
     return $stats;
 }
@@ -479,14 +529,26 @@ function checkExpiringServices() {
     global $db;
     
     $stmt = $db->prepare("
-        SELECT cs.*, c.client_name, c.assigned_user_id, s.service_name
-        FROM client_services cs
-        JOIN clients c ON cs.client_id = c.id
-        JOIN services s ON cs.service_id = s.id
-        WHERE cs.status = 'active'
-        AND cs.expiry_date >= CURDATE()
-        AND cs.expiry_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
-        ORDER BY cs.expiry_date ASC
+        SELECT 
+            ps.id,
+            ps.service_name,
+            ps.expiry_date,
+            ps.status,
+            ps.price,
+            p.id as project_id,
+            p.project_name,
+            c.id as client_id,
+            c.client_name,
+            c.primary_phone,
+            c.email
+        FROM project_services ps
+        JOIN projects p ON ps.project_id = p.id
+        JOIN clients c ON p.client_id = c.id
+        WHERE ps.status = 'active'
+        AND ps.expiry_date >= CURDATE()
+        AND ps.expiry_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+        ORDER BY ps.expiry_date ASC
+        LIMIT 10
     ");
     
     $stmt->execute();

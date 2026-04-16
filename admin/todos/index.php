@@ -1,350 +1,585 @@
 <?php
+
 /**
- * TODOS - KANBAN BOARD VIEW
+ * PRIVATE TODO LIST - Complete CRUD Application
+ * Modern Task Management System
  */
 
 require_once __DIR__ . '/../../includes/init.php';
-
 requireLogin();
 
-$pageTitle = 'My Tasks';
-
+$pageTitle = 'My Todos';
+$userId = currentUser()['id'];
 global $db;
 
-// Get current user's tasks grouped by status
+// Create todos table if it doesn't exist
+$db->exec("
+    CREATE TABLE IF NOT EXISTS `todos` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `user_id` INT NOT NULL,
+        `title` VARCHAR(255) NOT NULL,
+        `description` TEXT,
+        `priority` ENUM('low', 'medium', 'high') DEFAULT 'medium',
+        `status` ENUM('pending', 'in_progress', 'completed') DEFAULT 'pending',
+        `due_date` DATE,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+    )
+");
+
+// Get all todos for current user
 $stmt = $db->prepare("
     SELECT * FROM todos 
-    WHERE assigned_to = ? 
-    ORDER BY priority DESC, due_date ASC
+    WHERE user_id = ? 
+    ORDER BY 
+        CASE status WHEN 'completed' THEN 3 ELSE 0 END,
+        CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+        due_date ASC,
+        created_at DESC
 ");
-$stmt->execute([currentUser()['id']]);
+$stmt->execute([$userId]);
 $allTodos = $stmt->fetchAll();
 
 // Group by status
-$byStatus = ['todo' => [], 'in_progress' => [], 'done' => []];
+$byStatus = ['pending' => [], 'in_progress' => [], 'completed' => []];
 foreach ($allTodos as $todo) {
     $byStatus[$todo['status']][] = $todo;
 }
 
-// Handle POST for drag-drop status update
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    header('Content-Type: application/json');
-    
-    if ($_POST['action'] === 'update_status') {
-        $todoId = (int)$_POST['todo_id'];
-        $newStatus = $_POST['new_status'];
-        
-        $stmt = $db->prepare("UPDATE todos SET status = ? WHERE id = ?");
-        $stmt->execute([$newStatus, $todoId]);
-        logActivity('UPDATE', 'todos', $todoId, "Status changed to {$newStatus}");
-        
-        echo json_encode(['success' => true]);
-        exit;
-    }
-}
+// Count by status
+$stats = [
+    'total' => count($allTodos),
+    'pending' => count($byStatus['pending']),
+    'in_progress' => count($byStatus['in_progress']),
+    'completed' => count($byStatus['completed'])
+];
 
 include __DIR__ . '/../../includes/header.php';
 ?>
 
 <style>
-    .kanban-board {
+    :root {
+        --primary: #6418C3;
+        --secondary: #1EAAE7;
+        --success: #2BC155;
+        --warning: #FF9B52;
+        --danger: #FF5E5E;
+        --dark: #1D1D1D;
+        --border: #EEEEEE;
+        --body-bg: #F4F4F4;
+    }
+
+    .todo-main {
+        /* margin-left: 270px; */
+        padding: 30px;
+        background: var(--body-bg);
+        min-height: calc(100vh - 60px);
+    }
+
+    .todo-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+
+    .todo-header h1 {
+        margin: 0;
+        font-size: 2rem;
+        color: var(--dark);
+        font-weight: 700;
+    }
+
+    .btn-add {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .btn-add:hover {
+        background: #5310a3;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(100, 24, 195, 0.3);
+    }
+
+    .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 20px;
         margin-bottom: 30px;
     }
 
-    .kanban-column {
-        background: #f8f9ff;
+    .stat-card {
+        background: white;
+        padding: 20px;
         border-radius: 12px;
-        padding: 15px;
-        min-height: 500px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        text-align: center;
+        border-top: 4px solid;
     }
 
-    .kanban-column-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 15px;
-        padding-bottom: 12px;
-        border-bottom: 2px solid #ddd;
+    .stat-card.pending {
+        border-top-color: var(--warning);
     }
 
-    .kanban-column-title {
+    .stat-card.in_progress {
+        border-top-color: var(--secondary);
+    }
+
+    .stat-card.completed {
+        border-top-color: var(--success);
+    }
+
+    .stat-card.total {
+        border-top-color: var(--primary);
+    }
+
+    .stat-number {
+        font-size: 2rem;
         font-weight: 700;
-        font-size: 1.1rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        color: var(--primary);
     }
 
-    .kanban-column-title.todo { color: #FF9B52; }
-    .kanban-column-title.in-progress { color: #1EAAE7; }
-    .kanban-column-title.done { color: #2BC155; }
-
-    .task-count {
-        background: rgba(0,0,0,0.1);
-        padding: 4px 10px;
-        border-radius: 20px;
+    .stat-label {
+        color: #666;
+        margin-top: 8px;
         font-weight: 600;
-        font-size: 0.85rem;
     }
 
-    .task-list {
+    .filter-bar {
+        background: white;
+        padding: 15px 20px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .filter-bar input,
+    .filter-bar select {
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 0.9rem;
+    }
+
+    .todos-container {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .todos-list {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 12px;
     }
 
-    .task-card {
-        background: white;
-        border-radius: 8px;
-        padding: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        border-left: 3px solid;
-        cursor: move;
+    .todo-item {
+        background: #f9f9f9;
+        padding: 18px;
+        border-radius: 10px;
+        display: flex;
+        gap: 15px;
+        align-items: flex-start;
+        border-left: 4px solid;
         transition: all 0.3s ease;
     }
 
-    .task-card:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        transform: translateY(-2px);
+    .todo-item:hover {
+        background: white;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        transform: translateX(4px);
     }
 
-    .task-card.priority-high { border-left-color: #FF5E5E; }
-    .task-card.priority-medium { border-left-color: #FF9B52; }
-    .task-card.priority-low { border-left-color: #2BC155; }
+    .todo-item.completed {
+        background: rgba(43, 193, 85, 0.05);
+        opacity: 0.7;
+    }
 
-    .task-title {
+    .todo-item.completed .todo-title {
+        text-decoration: line-through;
+        color: #999;
+    }
+
+    .todo-item.priority-high {
+        border-left-color: var(--danger);
+    }
+
+    .todo-item.priority-medium {
+        border-left-color: var(--warning);
+    }
+
+    .todo-item.priority-low {
+        border-left-color: var(--success);
+    }
+
+    .todo-checkbox {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        margin-top: 2px;
+        accent-color: var(--primary);
+    }
+
+    .todo-content {
+        flex: 1;
+    }
+
+    .todo-title {
         font-weight: 600;
-        margin-bottom: 8px;
-        font-size: 0.95rem;
+        font-size: 1rem;
+        color: var(--dark);
+        margin: 0 0 6px 0;
     }
 
-    .task-meta {
+    .todo-desc {
+        font-size: 0.9rem;
+        color: #666;
+        margin: 0 0 8px 0;
+        line-height: 1.4;
+    }
+
+    .todo-meta {
         display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-top: 8px;
-        font-size: 0.8rem;
+        gap: 12px;
+        flex-wrap: wrap;
     }
 
-    .task-priority {
+    .todo-priority {
         display: inline-block;
-        padding: 2px 8px;
+        padding: 3px 10px;
         border-radius: 4px;
+        font-size: 0.75rem;
         font-weight: 600;
         text-transform: uppercase;
-        font-size: 0.7rem;
     }
 
-    .task-priority.high { background: rgba(255,94,94,0.15); color: #FF5E5E; }
-    .task-priority.medium { background: rgba(255,155,82,0.15); color: #FF9B52; }
-    .task-priority.low { background: rgba(43,193,85,0.15); color: #2BC155; }
+    .todo-priority.high {
+        background: rgba(255, 94, 94, 0.15);
+        color: var(--danger);
+    }
 
-    .task-due {
+    .todo-priority.medium {
+        background: rgba(255, 155, 82, 0.15);
+        color: var(--warning);
+    }
+
+    .todo-priority.low {
+        background: rgba(43, 193, 85, 0.15);
+        color: var(--success);
+    }
+
+    .todo-due {
+        font-size: 0.85rem;
         color: #666;
     }
 
-    .task-due.overdue {
-        color: #FF5E5E;
+    .todo-due.overdue {
+        color: var(--danger);
         font-weight: 600;
     }
 
-    .add-task-btn {
+    .todo-status {
+        font-size: 0.85rem;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-weight: 600;
+    }
+
+    .todo-status.pending {
+        background: rgba(255, 155, 82, 0.15);
+        color: var(--warning);
+    }
+
+    .todo-status.in_progress {
+        background: rgba(30, 170, 231, 0.15);
+        color: var(--secondary);
+    }
+
+    .todo-status.completed {
+        background: rgba(43, 193, 85, 0.15);
+        color: var(--success);
+    }
+
+    .todo-actions {
         display: flex;
-        align-items: center;
-        justify-content: center;
         gap: 8px;
-        width: 100%;
-        padding: 12px;
-        background: white;
-        border: 2px dashed #ddd;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        color: #666;
-        font-weight: 600;
-        margin-top: 10px;
     }
 
-    .add-task-btn:hover {
-        border-color: #6418C3;
-        color: #6418C3;
-        background: rgba(100,24,195,0.05);
+    .btn-action {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 6px 10px;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    .btn-edit {
+        color: var(--secondary);
+        background: rgba(30, 170, 231, 0.1);
+    }
+
+    .btn-edit:hover {
+        background: rgba(30, 170, 231, 0.2);
+    }
+
+    .btn-delete {
+        color: var(--danger);
+        background: rgba(255, 94, 94, 0.1);
+    }
+
+    .btn-delete:hover {
+        background: rgba(255, 94, 94, 0.2);
     }
 
     .empty-state {
         text-align: center;
-        padding: 40px 20px;
+        padding: 60px 40px;
         color: #999;
     }
 
-    .empty-state-icon {
-        font-size: 2rem;
-        margin-bottom: 10px;
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        opacity: 0.5;
     }
 
-    .quick-stats {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 15px;
-        margin-bottom: 25px;
+    /* Modal Styles */
+    .modal-header {
+        background: var(--primary);
+        color: white;
+        border: none;
     }
 
-    .stat-box {
-        background: white;
-        padding: 15px;
-        border-radius: 12px;
-        text-align: center;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-    }
-
-    .stat-number {
-        font-size: 1.8rem;
+    .modal-title {
         font-weight: 700;
-        color: #6418C3;
     }
 
-    .stat-label {
-        font-size: 0.85rem;
-        color: #666;
-        margin-top: 5px;
+    .btn-close {
+        filter: brightness(0) invert(1);
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--dark);
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(100, 24, 195, 0.1);
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
     }
 
     @media (max-width: 768px) {
-        .kanban-board {
-            grid-template-columns: 1fr;
+        .todo-main {
+            margin-left: 0;
+            padding: 20px;
         }
 
-        .quick-stats {
+        .stats-grid {
             grid-template-columns: repeat(2, 1fr);
+        }
+
+        .todo-header {
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .filter-bar {
+            flex-direction: column;
+        }
+
+        .form-row {
+            grid-template-columns: 1fr;
         }
     }
 </style>
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
-    <h1 style="margin: 0; font-weight: 700; font-size: 2rem;">
-        <i class="fas fa-tasks"></i> My Tasks
-    </h1>
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTaskModal">
-        <i class="fas fa-plus"></i> Add Task
-    </button>
-</div>
-
-<?php echo flashAlert(); ?>
-
-<!-- QUICK STATS -->
-<div class="quick-stats">
-    <div class="stat-box">
-        <div class="stat-number"><?php echo count($byStatus['todo']); ?></div>
-        <div class="stat-label">To Do</div>
+<div class="todo-main">
+    <!-- HEADER -->
+    <div class="todo-header">
+        <h1><i class="fas fa-tasks"></i> My Todos</h1>
+        <button class="btn-add" onclick="openAddModal()">
+            <i class="fas fa-plus"></i> Add Todo
+        </button>
     </div>
-    <div class="stat-box">
-        <div class="stat-number"><?php echo count($byStatus['in_progress']); ?></div>
-        <div class="stat-label">In Progress</div>
-    </div>
-    <div class="stat-box">
-        <div class="stat-number"><?php echo count($byStatus['done']); ?></div>
-        <div class="stat-label">Done</div>
-    </div>
-    <div class="stat-box">
-        <div class="stat-number"><?php echo count($allTodos); ?></div>
-        <div class="stat-label">Total</div>
-    </div>
-</div>
 
-<!-- KANBAN BOARD -->
-<div class="kanban-board">
-    <?php
-    $columns = [
-        'todo' => ['title' => 'To Do', 'icon' => 'circle', 'color' => '#FF9B52'],
-        'in_progress' => ['title' => 'In Progress', 'icon' => 'spinner', 'color' => '#1EAAE7'],
-        'done' => ['title' => 'Done', 'icon' => 'check-circle', 'color' => '#2BC155']
-    ];
-
-    foreach ($columns as $status => $col):
-    ?>
-    <div class="kanban-column">
-        <div class="kanban-column-header">
-            <h3 class="kanban-column-title <?php echo str_replace('_', '-', $status); ?>">
-                <i class="fas fa-<?php echo $col['icon']; ?>"></i> <?php echo $col['title']; ?>
-            </h3>
-            <span class="task-count"><?php echo count($byStatus[$status]); ?></span>
+    <!-- STATS -->
+    <div class="stats-grid">
+        <div class="stat-card pending">
+            <div class="stat-number"><?php echo $stats['pending']; ?></div>
+            <div class="stat-label">Pending</div>
         </div>
+        <div class="stat-card in_progress">
+            <div class="stat-number"><?php echo $stats['in_progress']; ?></div>
+            <div class="stat-label">In Progress</div>
+        </div>
+        <div class="stat-card completed">
+            <div class="stat-number"><?php echo $stats['completed']; ?></div>
+            <div class="stat-label">Completed</div>
+        </div>
+        <div class="stat-card total">
+            <div class="stat-number"><?php echo $stats['total']; ?></div>
+            <div class="stat-label">Total Todos</div>
+        </div>
+    </div>
 
-        <div class="task-list" data-status="<?php echo $status; ?>">
-            <?php if (empty($byStatus[$status])): ?>
-            <div class="empty-state">
-                <div class="empty-state-icon"><i class="fas fa-inbox"></i></div>
-                <p>No tasks yet</p>
-            </div>
-            <?php else: ?>
-                <?php foreach ($byStatus[$status] as $task): ?>
-                <div class="task-card priority-<?php echo $task['priority']; ?>" draggable="true" data-id="<?php echo $task['id']; ?>">
-                    <div class="task-title"><?php echo clean($task['title']); ?></div>
-                    <?php if ($task['description']): ?>
-                    <p style="margin: 8px 0; font-size: 0.85rem; color: #666;">
-                        <?php echo clean(substr($task['description'], 0, 60)) . (strlen($task['description']) > 60 ? '...' : ''); ?>
-                    </p>
-                    <?php endif; ?>
-                    <div class="task-meta">
-                        <span class="task-priority <?php echo $task['priority']; ?>">
-                            <?php echo ucfirst($task['priority']); ?>
-                        </span>
-                        <?php 
-                        $dueDate = strtotime($task['due_date']);
-                        $today = strtotime('today');
-                        $isOverdue = $dueDate < $today && $task['status'] !== 'done';
-                        ?>
-                        <span class="task-due <?php echo $isOverdue ? 'overdue' : ''; ?>">
-                            <?php echo timeAgo($task['due_date']); ?>
-                        </span>
-                    </div>
+    <!-- FILTER BAR -->
+    <div class="filter-bar">
+        <input type="text" id="searchInput" placeholder="Search todos..." style="flex: 1;">
+        <select id="filterStatus" onchange="filterTodos()">
+            <option value="">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+        </select>
+        <select id="filterPriority" onchange="filterTodos()">
+            <option value="">All Priority</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+        </select>
+    </div>
+
+    <!-- TODOS LIST -->
+    <div class="todos-container">
+        <div class="todos-list" id="todosList">
+            <?php if (empty($allTodos)): ?>
+                <div class="empty-state">
+                    <i class="fas fa-clipboard-list"></i>
+                    <p style="font-size: 1.1rem;">No todos yet. Create one to get started!</p>
                 </div>
+            <?php else: ?>
+                <?php foreach ($allTodos as $todo): ?>
+                    <div class="todo-item <?php echo $todo['status']; ?> priority-<?php echo $todo['priority']; ?>" data-id="<?php echo $todo['id']; ?>" data-status="<?php echo $todo['status']; ?>" data-priority="<?php echo $todo['priority']; ?>">
+                        <input type="checkbox" class="todo-checkbox" <?php echo $todo['status'] === 'completed' ? 'checked' : ''; ?> onchange="toggleTodo(<?php echo $todo['id']; ?>)">
+
+                        <div class="todo-content">
+                            <h4 class="todo-title"><?php echo clean($todo['title']); ?></h4>
+                            <?php if ($todo['description']): ?>
+                                <p class="todo-desc"><?php echo clean($todo['description']); ?></p>
+                            <?php endif; ?>
+
+                            <div class="todo-meta">
+                                <span class="todo-priority <?php echo $todo['priority']; ?>">
+                                    <?php echo ucfirst($todo['priority']); ?>
+                                </span>
+                                <span class="todo-status <?php echo $todo['status']; ?>">
+                                    <?php echo ucfirst(str_replace('_', ' ', $todo['status'])); ?>
+                                </span>
+                                <?php if ($todo['due_date']):
+                                    $dueDate = strtotime($todo['due_date']);
+                                    $today = strtotime('today');
+                                    $isOverdue = $dueDate < $today && $todo['status'] !== 'completed';
+                                ?>
+                                    <span class="todo-due <?php echo $isOverdue ? 'overdue' : ''; ?>">
+                                        <?php echo $isOverdue ? '⚠️ Overdue: ' : '📅 ';
+                                        echo formatDate($todo['due_date']); ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <div class="todo-actions">
+                            <button class="btn-action btn-edit" onclick="openEditModal(<?php echo $todo['id']; ?>, '<?php echo addslashes($todo['title']); ?>', '<?php echo addslashes($todo['description'] ?? ''); ?>', '<?php echo $todo['priority']; ?>', '<?php echo $todo['status']; ?>', '<?php echo $todo['due_date']; ?>')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn-action btn-delete" onclick="deleteTodo(<?php echo $todo['id']; ?>)">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
     </div>
-    <?php endforeach; ?>
 </div>
 
-<!-- ADD TASK MODAL -->
-<div class="modal fade" id="addTaskModal" tabindex="-1">
+<!-- ADD/EDIT MODAL -->
+<div class="modal fade" id="todoModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add New Task</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="modalTitle">Add New Todo</h5>
+                <button type="button" class="btn-close" onclick="closeTodoModal()"></button>
             </div>
-            <form method="POST" action="add.php">
+            <form id="todoForm">
                 <div class="modal-body">
-                    <?php echo csrfField(); ?>
+                    <input type="hidden" id="todoId" value="">
+
                     <div class="form-group">
-                        <label>Task Title *</label>
-                        <input type="text" name="title" class="form-control" required>
+                        <label>Title *</label>
+                        <input type="text" id="todoTitle" class="form-control" placeholder="What do you need to do?" required>
                     </div>
+
                     <div class="form-group">
                         <label>Description</label>
-                        <textarea name="description" class="form-control" rows="3"></textarea>
+                        <textarea id="todoDesc" class="form-control" rows="3" placeholder="Add more details..."></textarea>
                     </div>
+
                     <div class="form-row">
-                        <div class="form-group col-6">
+                        <div class="form-group">
                             <label>Priority</label>
-                            <select name="priority" class="form-control">
+                            <select id="todoPriority" class="form-control">
                                 <option value="low">Low</option>
                                 <option value="medium" selected>Medium</option>
                                 <option value="high">High</option>
                             </select>
                         </div>
-                        <div class="form-group col-6">
-                            <label>Due Date</label>
-                            <input type="date" name="due_date" class="form-control">
+
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="todoStatus" class="form-control">
+                                <option value="pending">Pending</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="completed">Completed</option>
+                            </select>
                         </div>
                     </div>
+
+                    <div class="form-group">
+                        <label>Due Date</label>
+                        <input type="date" id="todoDueDate" class="form-control">
+                    </div>
                 </div>
+
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Task</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeTodoModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Todo</button>
                 </div>
             </form>
         </div>
@@ -352,49 +587,96 @@ include __DIR__ . '/../../includes/header.php';
 </div>
 
 <script>
-    // Drag and drop
-    let draggedElement = null;
+    const APP_URL = '<?php echo APP_URL; ?>';
 
-    document.querySelectorAll('.task-card').forEach(card => {
-        card.addEventListener('dragstart', function(e) {
-            draggedElement = this;
-            this.style.opacity = '0.5';
-        });
+    function openAddModal() {
+        document.getElementById('modalTitle').textContent = 'Add New Todo';
+        document.getElementById('todoForm').reset();
+        document.getElementById('todoId').value = '';
+        const modal = new bootstrap.Modal(document.getElementById('todoModal'));
+        modal.show();
+    }
 
-        card.addEventListener('dragend', function(e) {
-            this.style.opacity = '1';
-        });
+    function openEditModal(id, title, desc, priority, status, dueDate) {
+        document.getElementById('modalTitle').textContent = 'Edit Todo';
+        document.getElementById('todoId').value = id;
+        document.getElementById('todoTitle').value = title;
+        document.getElementById('todoDesc').value = desc;
+        document.getElementById('todoPriority').value = priority;
+        document.getElementById('todoStatus').value = status;
+        document.getElementById('todoDueDate').value = dueDate;
+        const modal = new bootstrap.Modal(document.getElementById('todoModal'));
+        modal.show();
+    }
+
+    function closeTodoModal() {
+        bootstrap.Modal.getInstance(document.getElementById('todoModal')).hide();
+    }
+
+    document.getElementById('todoForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const id = document.getElementById('todoId').value;
+        const action = id ? 'edit' : 'add';
+        const url = action === 'add' ? 'add.php' : 'edit.php';
+
+        const formData = new FormData();
+        if (id) formData.append('id', id);
+        formData.append('title', document.getElementById('todoTitle').value);
+        formData.append('description', document.getElementById('todoDesc').value);
+        formData.append('priority', document.getElementById('todoPriority').value);
+        formData.append('status', document.getElementById('todoStatus').value);
+        formData.append('due_date', document.getElementById('todoDueDate').value);
+
+        fetch(url, {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Operation failed'));
+                }
+            });
     });
 
-    document.querySelectorAll('.task-list').forEach(list => {
-        list.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            this.style.background = 'rgba(100,24,195,0.1)';
+    function toggleTodo(id) {
+        fetch('toggle.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'id=' + id
+        }).then(() => location.reload());
+    }
+
+    function deleteTodo(id) {
+        if (confirm('Are you sure you want to delete this todo?')) {
+            fetch('delete.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: 'id=' + id
+            }).then(() => location.reload());
+        }
+    }
+
+    function filterTodos() {
+        const search = document.getElementById('searchInput').value.toLowerCase();
+        const status = document.getElementById('filterStatus').value;
+        const priority = document.getElementById('filterPriority').value;
+
+        document.querySelectorAll('.todo-item').forEach(item => {
+            const matchSearch = item.textContent.toLowerCase().includes(search);
+            const matchStatus = !status || item.dataset.status === status;
+            const matchPriority = !priority || item.dataset.priority === priority;
+            item.style.display = (matchSearch && matchStatus && matchPriority) ? 'flex' : 'none';
         });
+    }
 
-        list.addEventListener('dragleave', function(e) {
-            this.style.background = '';
-        });
-
-        list.addEventListener('drop', function(e) {
-            e.preventDefault();
-            this.style.background = '';
-
-            if (draggedElement) {
-                const newStatus = this.dataset.status;
-                const todoId = draggedElement.dataset.id;
-
-                // Send update to server
-                fetch('', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: 'action=update_status&todo_id=' + todoId + '&new_status=' + newStatus
-                }).then(() => {
-                    this.appendChild(draggedElement);
-                });
-            }
-        });
-    });
+    document.getElementById('searchInput').addEventListener('input', filterTodos);
 </script>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>

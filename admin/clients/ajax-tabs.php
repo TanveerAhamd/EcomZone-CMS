@@ -361,42 +361,88 @@ function handleMeetings($db, $clientId)
         return;
     }
 
-    $html = '<div class="timeline">';
+    $html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px;">';
 
     foreach ($meetings as $mtg) {
         $isFuture = strtotime($mtg['meeting_date']) > time();
         $daysDiff = (strtotime($mtg['meeting_date']) - time()) / (24 * 60 * 60);
-
         $hasNotes = !empty($mtg['notes']);
+        
+        // Parse notes into array (assuming notes are separated by newlines)
+        $notesList = $hasNotes ? array_filter(array_map('trim', explode("\n", $mtg['notes']))) : [];
 
-        $html .= '<div class="timeline-item" style="position: relative; padding: 15px; background: #f9f9f9; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid ' . ($isFuture ? '#6418C3' : '#999') . ';">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+        $statusColor = $isFuture ? '#6418C3' : '#999';
+        $statusBg = $isFuture ? 'rgba(100, 24, 195, 0.1)' : 'rgba(153, 153, 153, 0.1)';
+        $statusText = $isFuture ? '📅 UPCOMING' : '✓ COMPLETED';
+
+        $html .= '
+        <div style="background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: all 0.3s ease; border-left: 4px solid ' . $statusColor . ';">
+            <!-- Header -->
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
                 <div style="flex: 1;">
-                    <p class="timeline-title" style="color: ' . ($isFuture ? '#1D1D1D' : '#999') . '; margin: 0 0 5px 0;">
+                    <h5 style="margin: 0 0 8px 0; color: #1D1D1D; font-weight: 700; font-size: 1rem;">
                         ' . clean($mtg['title']) . '
-                        ' . ($isFuture ? '<span style="display: inline-block; background: #6418C3; color: white; padding: 3px 10px; border-radius: 3px; font-size: 0.7rem; font-weight: 600; margin-left: 10px;">UPCOMING (' . round($daysDiff) . 'd)</span>' : '<span style="display: inline-block; background: #999; color: white; padding: 3px 10px; border-radius: 3px; font-size: 0.7rem; font-weight: 600; margin-left: 10px;">PAST</span>') . '
-                    </p>
-                    <p class="timeline-description" style="margin: 0 0 8px 0;">
-                        <i class="fas fa-calendar"></i> ' . formatDate($mtg['meeting_date']) . '
-                        ' . ($mtg['meeting_time'] ? '@ <strong>' . date('H:i', strtotime($mtg['meeting_time'])) . '</strong>' : '') . '
-                        ' . ($mtg['location'] ? '<br><i class="fas fa-map-marker-alt"></i> ' . clean($mtg['location']) : '') . '
-                    </p>
+                    </h5>
+                    <span style="display: inline-block; background: ' . $statusBg . '; color: ' . $statusColor . '; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">
+                        ' . $statusText . ($isFuture ? ' (' . round($daysDiff) . 'd)' : '') . '
+                    </span>
                 </div>
-                <button onclick="toggleMeetingNotes(' . $mtg['id'] . ')" style="background: #1EAAE7; color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.75rem; white-space: nowrap;">
-                    <i class="fas fa-sticky-note"></i> ' . ($hasNotes ? 'View' : 'Add') . '
-                </button>
             </div>
-            
-            <div id="notes-section-' . $mtg['id'] . '" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
-                <textarea id="notes-content-' . $mtg['id'] . '" placeholder="Add meeting notes..." style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-family: Arial; font-size: 0.9rem; resize: vertical; min-height: 120px;" data-meeting-id="' . $mtg['id'] . '">' . clean($mtg['notes'] ?? '') . '</textarea>
-                <div style="display: flex; gap: 10px; margin-top: 12px;">
-                    <button onclick="saveMeetingNotes(' . $mtg['id'] . ')" style="flex: 1; background: #2BC155; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                        <i class="fas fa-save"></i> Save Notes
-                    </button>
-                    <button onclick="toggleMeetingNotes(' . $mtg['id'] . ')" style="flex: 1; background: #999; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                        <i class="fas fa-times"></i> Close
+
+            <!-- Meeting Details -->
+            <div style="background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 0.9rem;">
+                <p style="margin: 0 0 8px 0; color: #666;">
+                    <i class="fas fa-calendar" style="color: ' . $statusColor . '; margin-right: 8px;"></i>
+                    <strong>' . formatDate($mtg['meeting_date']) . '</strong>
+                    ' . ($mtg['meeting_time'] ? '<span style="color: #999;">@ ' . date('H:i', strtotime($mtg['meeting_time'])) . '</span>' : '') . '
+                </p>
+                ' . ($mtg['location'] ? '<p style="margin: 0; color: #666;"><i class="fas fa-map-marker-alt" style="color: ' . $statusColor . '; margin-right: 8px;"></i>' . clean($mtg['location']) . '</p>' : '') . '
+            </div>
+
+            <!-- Meeting Notes Section -->
+            <div style="margin-bottom: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h6 style="margin: 0; color: #1D1D1D; font-weight: 600; font-size: 0.9rem;">
+                        <i class="fas fa-clipboard-list" style="color: ' . $statusColor . '; margin-right: 6px;"></i>
+                        Meeting Notes
+                    </h6>
+                    <button onclick="openAddNoteModal(' . $mtg['id'] . ', \'' . clean($mtg['title']) . '\')" style="background: ' . $statusColor . '; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.75rem; transition: all 0.3s;">
+                        <i class="fas fa-plus"></i> Add
                     </button>
                 </div>
+                
+                <div id="notes-list-' . $mtg['id'] . '">';
+                
+                if (count($notesList) > 0) {
+                    $html .= '<ul style="margin: 0; padding-left: 20px; list-style: disc;">';
+                    foreach ($notesList as $index => $note) {
+                        $html .= '
+                        <li style="margin-bottom: 8px; color: #555; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                            <span style="flex: 1;">' . clean($note) . '</span>
+                            <div style="display: flex; gap: 4px; white-space: nowrap;">
+                                <button onclick="editMeetingNote(' . $mtg['id'] . ', ' . $index . ', \'' . htmlspecialchars(addslashes($note), ENT_QUOTES) . '\')" style="background: #1EAAE7; color: white; border: none; padding: 2px 8px; border-radius: 3px; cursor: pointer; font-size: 0.7rem; font-weight: 600;">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteMeetingNote(' . $mtg['id'] . ', ' . $index . ')" style="background: #FF5E5E; color: white; border: none; padding: 2px 8px; border-radius: 3px; cursor: pointer; font-size: 0.7rem; font-weight: 600;">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </li>';
+                    }
+                    $html .= '</ul>';
+                } else {
+                    $html .= '<p style="color: #999; font-size: 0.9rem; margin: 0; text-align: center; padding: 15px; background: #f5f5f5; border-radius: 6px;">No notes yet</p>';
+                }
+                
+                $html .= '</div>
+            </div>
+
+            <!-- Footer -->
+            <div style="display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid #e0e0e0;">
+
+                <button onclick="deleteMeeting(' . $mtg['id'] . ', \'' . clean($mtg['title']) . '\')" style="flex: 1; background: #FFF; border: 1px solid #FF5E5E; color: #FF5E5E; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.8rem; transition: all 0.3s;">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
             </div>
         </div>';
     }
@@ -406,7 +452,8 @@ function handleMeetings($db, $clientId)
 }
 
 // Helper function to get progress color
-function getProgressColor($progress) {
+function getProgressColor($progress)
+{
     if ($progress >= 75) return '#2BC155';
     if ($progress >= 50) return '#FFD700';
     if ($progress >= 25) return '#FF9B52';
@@ -416,57 +463,79 @@ function getProgressColor($progress) {
 // ============ DOCUMENTS ============
 function handleDocuments($db, $clientId)
 {
-    $stmt = $db->prepare("SELECT * FROM client_documents WHERE client_id = ? ORDER BY uploaded_at DESC");
+    // Fetch documents from document_bank table for this client
+    $stmt = $db->prepare("
+        SELECT 
+            id, 
+            document_title, 
+            file_name, 
+            original_name, 
+            file_path, 
+            file_size, 
+            uploaded_at
+        FROM document_bank 
+        WHERE client_id = ? 
+        ORDER BY uploaded_at DESC
+    ");
     $stmt->execute([$clientId]);
     $documents = $stmt->fetchAll();
 
     if (count($documents) === 0) {
-        echo json_encode(['html' => '<p style="text-align: center; color: #888; padding: 20px;">No documents uploaded</p>']);
+        echo json_encode(['html' => '<div style="text-align: center; padding: 40px; color: #888;"><i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 10px; opacity: 0.5; display: block;"></i><p>No documents uploaded yet</p></div>']);
         return;
     }
 
-    $html = '<table class="table table-striped table-hover">
-        <thead class="table-dark">
-            <tr>
-                <th>📄 Title</th>
-                <th>📅 Date</th>
-                <th>💾 Size</th>
-                <th style="text-align: center;">⚙️ Actions</th>
-            </tr>
-        </thead>
-        <tbody>';
+    $html = '<div style="overflow-x: auto;">
+        <table class="table ">
+            <thead class=" " >
+                <tr>
+                    <th><i class="fas fa-file"></i> Document Title</th>
+                    <th><i class="fas fa-calendar"></i> Date</th>
+                    <th><i class="fas fa-weight"></i> Size</th>
+                    <th style="text-align: center;"><i class="fas fa-cogs"></i> Actions</th>
+                </tr>
+            </thead>
+            <tbody>';
 
     foreach ($documents as $doc) {
-        $filePath = '/uploads/client-documents/' . $doc['file_name'];
-        $fullPath = $_SERVER['DOCUMENT_ROOT'] . $filePath;
+        $uploadPath = '/uploads/document-bank/' . $doc['file_path'];
+        $fullPath = $_SERVER['DOCUMENT_ROOT'] . $uploadPath;
         $fileExists = file_exists($fullPath);
-        $fileSize = $fileExists ? filesize($fullPath) : 0;
-        $sizeText = $fileSize > 1048576 ? round($fileSize / 1048576, 2) . ' MB' : round($fileSize / 1024, 2) . ' KB';
+
+        // Format file size
+        $fileSize = $doc['file_size'];
+        $sizeText = formatFileSize($fileSize);
+
+        // Format date
         $date = date('d M Y', strtotime($doc['uploaded_at']));
-        
+
         $html .= '<tr>
-            <td><strong>' . htmlspecialchars($doc['original_name']) . '</strong></td>
-            <td>' . $date . '</td>
+            <td><strong>' . htmlspecialchars($doc['document_title']) . '</strong><br><small style="color: #999;">' . htmlspecialchars($doc['original_name']) . '</small></td>
+            <td><small>' . $date . '</small></td>
             <td><strong>' . $sizeText . '</strong></td>
             <td style="text-align: center;">';
-        
-        // Download button
-        if ($fileExists) {
-            $html .= '<a href="' . APP_URL . $filePath . '" class="btn btn-sm btn-success me-2" download><i class="fas fa-download"></i></a>';
-        }
-        
+
         // View button
-        $html .= '<button class="btn btn-sm btn-info me-2" onclick="viewDoc(' . $doc['id'] . ')"><i class="fas fa-eye"></i></button>';
-        
-        // Edit button
-        $html .= '<button class="btn btn-sm btn-warning me-2" onclick="editDoc(' . $doc['id'] . ')"><i class="fas fa-edit"></i></button>';
-        
+        $html .= '<button class="btn btn-sm btn-info me-2" onclick="viewDocBank(' . $doc['id'] . ')" title="View"><i class="fas fa-eye"></i></button>';
+
+        // Download button
+        $html .= '<a href="' . APP_URL . '/admin/api/download-document.php?id=' . $doc['id'] . '" class="btn btn-sm btn-success me-2" title="Download"><i class="fas fa-download"></i></a>';
+
         // Delete button
-        $html .= '<button class="btn btn-sm btn-danger" onclick="deleteDoc(' . $doc['id'] . ')"><i class="fas fa-trash"></i></button>';
-        
+        $html .= '<button class="btn btn-sm btn-danger" onclick="deleteDocBank(' . $doc['id'] . ')" title="Delete"><i class="fas fa-trash"></i></button>';
+
         $html .= '</td></tr>';
     }
 
-    $html .= '</tbody></table>';
+    $html .= '</tbody></table></div>';
     echo json_encode(['html' => $html]);
+}
+
+function formatFileSize($bytes)
+{
+    if ($bytes == 0) return '0 B';
+    $k = 1024;
+    $sizes = ['B', 'KB', 'MB', 'GB'];
+    $i = floor(log($bytes, $k));
+    return round($bytes / pow($k, $i), 2) . ' ' . $sizes[$i];
 }

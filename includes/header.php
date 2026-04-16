@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Header - Sidebar & Topbar
  * Design inspired by Workload template
@@ -9,43 +10,51 @@ if (!function_exists('isLoggedIn')) return;
 $user = currentUser();
 $notificationCount = getUnreadNotificationsCount($user['id']);
 $dashboardStats = getDashboardStats();
+
+// Get document count from document_bank
+global $db;
+$stmtDocCount = $db->prepare("SELECT COUNT(*) as count FROM document_bank");
+$stmtDocCount->execute();
+$docCountResult = $stmtDocCount->fetch();
+$documentCount = $docCountResult['count'] ?? 0;
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo APP_NAME; ?> - Project Management System</title>
-    
+
     <!-- Bootstrap 5.3 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <!-- Font Awesome 6 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <!-- Google Fonts - Poppins -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <!-- DataTables -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css">
-    
+
     <!-- Select2 -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
-    
+
     <!-- Flatpickr -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    
+
     <!-- ApexCharts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.45.0/apexcharts.min.js"></script>
-    
+
     <!-- SweetAlert2 -->
     <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.18/dist/sweetalert2.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.18/dist/sweetalert2.min.js"></script>
-    
+
     <!-- Toastr.js -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" rel="stylesheet">
-    
+
     <style>
         :root {
             --primary: #6418C3;
@@ -83,7 +92,7 @@ $dashboardStats = getDashboardStats();
             overflow-y: auto;
             z-index: 1000;
             transition: all 0.3s ease;
-            border-right: 1px solid rgba(255,255,255,0.1);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .sidebar.collapsed {
@@ -92,7 +101,7 @@ $dashboardStats = getDashboardStats();
 
         .sidebar-logo {
             padding: 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             text-align: center;
         }
 
@@ -111,7 +120,7 @@ $dashboardStats = getDashboardStats();
         }
 
         .sidebar-logo-subtitle {
-            color: rgba(255,255,255,0.5);
+            color: rgba(255, 255, 255, 0.5);
             font-size: 0.7rem;
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -126,13 +135,13 @@ $dashboardStats = getDashboardStats();
         .nav-section {
             padding: 20px 0 15px 0;
             margin: 10px 0 0 0;
-            border-top: 1px solid rgba(255,255,255,0.05);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .nav-section-label {
             padding: 0 20px 10px 20px;
             font-size: 0.7rem;
-            color: rgba(255,255,255,0.4);
+            color: rgba(255, 255, 255, 0.4);
             text-transform: uppercase;
             letter-spacing: 2px;
             font-weight: 600;
@@ -142,7 +151,7 @@ $dashboardStats = getDashboardStats();
             padding: 12px 20px;
             margin: 0 10px;
             border-radius: 8px;
-            color: rgba(255,255,255,0.7);
+            color: rgba(255, 255, 255, 0.7);
             text-decoration: none;
             display: flex;
             align-items: center;
@@ -160,12 +169,12 @@ $dashboardStats = getDashboardStats();
         }
 
         .nav-item:hover {
-            background: rgba(255,255,255,0.05);
+            background: rgba(255, 255, 255, 0.05);
             color: white;
         }
 
         .nav-item.active {
-            background: rgba(100,24,195,0.2);
+            background: rgba(100, 24, 195, 0.2);
             color: var(--primary);
             border-left: 3px solid var(--primary);
             padding-left: 17px;
@@ -176,7 +185,7 @@ $dashboardStats = getDashboardStats();
             justify-content: center;
         }
 
-        .sidebar.collapsed .nav-item > span:not(i) {
+        .sidebar.collapsed .nav-item>span:not(i) {
             display: none;
         }
 
@@ -185,8 +194,8 @@ $dashboardStats = getDashboardStats();
             bottom: 0;
             width: 100%;
             padding: 20px;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            background: rgba(0,0,0,0.2);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.2);
         }
 
         .user-item {
@@ -224,7 +233,7 @@ $dashboardStats = getDashboardStats();
         }
 
         .user-role {
-            color: rgba(255,255,255,0.5);
+            color: rgba(255, 255, 255, 0.5);
             font-size: 0.75rem;
             margin: 2px 0 0 0;
             display: block;
@@ -236,7 +245,7 @@ $dashboardStats = getDashboardStats();
         }
 
         .logout-btn {
-            color: rgba(255,255,255,0.7);
+            color: rgba(255, 255, 255, 0.7);
             cursor: pointer;
             transition: all 0.3s ease;
         }
@@ -254,7 +263,7 @@ $dashboardStats = getDashboardStats();
             display: flex;
             align-items: center;
             padding: 0 25px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
             position: fixed;
             top: 0;
             left: 270px;
@@ -263,8 +272,8 @@ $dashboardStats = getDashboardStats();
             transition: all 0.3s ease;
         }
 
-        .sidebar.collapsed ~ .topbar,
-        .sidebar.collapsed ~ .main-content {
+        .sidebar.collapsed~.topbar,
+        .sidebar.collapsed~.main-content {
             left: 80px;
         }
 
@@ -357,7 +366,7 @@ $dashboardStats = getDashboardStats();
             background: white;
             width: 320px;
             border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
             z-index: 1100;
             max-height: 400px;
             overflow-y: auto;
@@ -388,7 +397,7 @@ $dashboardStats = getDashboardStats();
         }
 
         .notification-item.unread {
-            background: rgba(100,24,195,0.05);
+            background: rgba(100, 24, 195, 0.05);
         }
 
         .notification-item.info {
@@ -454,7 +463,7 @@ $dashboardStats = getDashboardStats();
                 display: none;
             }
 
-            .nav-item > span {
+            .nav-item>span {
                 display: none;
             }
 
@@ -485,158 +494,144 @@ $dashboardStats = getDashboardStats();
         }
     </style>
 </head>
+
 <body>
 
-<!-- SIDEBAR -->
-<aside class="sidebar" id="sidebar">
-    <div class="sidebar-logo">
-        <i class="fas fa-cube sidebar-logo-icon"></i>
-        <p class="sidebar-logo-text">CMS-ecomzone</p>
-        <p class="sidebar-logo-subtitle">Project Mgmt</p>
-    </div>
-
-    <nav>
-        <!-- MAIN MENU -->
-        <div class="nav-section">
-            <a href="<?php echo APP_URL; ?>/admin/dashboard.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'dashboard') !== false) ? 'active' : ''; ?>">
-                <i class="fas fa-chart-line"></i>
-                <span>Dashboard</span>
-            </a>
-
-            <div class="nav-section-label">MANAGEMENT</div>
-            <a href="<?php echo APP_URL; ?>/admin/clients/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'clients') !== false) ? 'active' : ''; ?>">
-                <i class="fas fa-users"></i>
-                <span>Clients</span>
-            </a>
-            <a href="<?php echo APP_URL; ?>/admin/projects/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'projects') !== false) ? 'active' : ''; ?>">
-                <i class="fas fa-tasks"></i>
-                <span>Projects</span>
-            </a>
-            <a href="<?php echo APP_URL; ?>/admin/service-categories/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'service-categories') !== false) ? 'active' : ''; ?>">
-                <i class="fas fa-layer-group"></i>
-                <span>Service Categories</span>
-            </a>
-
-            <div class="nav-section-label">FINANCE</div>
-            <a href="<?php echo APP_URL; ?>/admin/invoices/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'invoices') !== false) ? 'active' : ''; ?>">
-                <i class="fas fa-receipt"></i>
-                <span>Invoices</span>
-            </a>
-            <a href="<?php echo APP_URL; ?>/admin/quotations/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'quotations') !== false) ? 'active' : ''; ?>">
-                <i class="fas fa-quote-left"></i>
-                <span>Quotations</span>
-            </a>
-            <a href="<?php echo APP_URL; ?>/admin/payments/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'payments') !== false) ? 'active' : ''; ?>">
-                <i class="fas fa-credit-card"></i>
-                <span>Payments</span>
-            </a>
-
-            <div class="nav-section-label">COLLABORATION</div>
-            <a href="<?php echo APP_URL; ?>/admin/alerts/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'alerts') !== false) ? 'active' : ''; ?>">
-                <i class="fas fa-bell"></i>
-                <span>Manage Alerts</span>
-            </a>
-            <a href="<?php echo APP_URL; ?>/admin/meetings/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'meetings') !== false) ? 'active' : ''; ?>">
-                <i class="fas fa-calendar-check"></i>
-                <span>Meetings</span>
-            </a>
-            <a href="<?php echo APP_URL; ?>/admin/whatsapp/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'whatsapp') !== false) ? 'active' : ''; ?>">
-                <i class="fab fa-whatsapp"></i>
-                <span>WhatsApp</span>
-            </a>
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <i class="fas fa-cube sidebar-logo-icon"></i>
+            <p class="sidebar-logo-text">CMS-ecomzone</p>
+            <p class="sidebar-logo-subtitle">Project Mgmt</p>
         </div>
 
-        <!-- PRIVATE SECTION -->
-        <div class="nav-section">
-            <div class="nav-section-label">PERSONAL</div>
-            <a href="<?php echo APP_URL; ?>/admin/todos/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'todos') !== false) ? 'active' : ''; ?>">
-                <i class="fas fa-check-square"></i>
-                <span>My Todos</span>
-            </a>
-        </div>
+        <nav>
+            <!-- MAIN MENU -->
+            <div class="nav-section">
+                <a href="<?php echo APP_URL; ?>/admin/dashboard.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'dashboard') !== false) ? 'active' : ''; ?>">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
 
-        <!-- ADMIN SECTION -->
-        <?php if ($user['role'] === 'admin'): ?>
-        <div class="nav-section">
-            <div class="nav-section-label">ADMIN</div>
-            <a href="<?php echo APP_URL; ?>/admin/users.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'users') !== false) ? 'active' : ''; ?>">
-                <i class="fas fa-user-tie"></i>
-                <span>Users</span>
-            </a>
-            <a href="<?php echo APP_URL; ?>/admin/settings/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'settings') !== false) ? 'active' : ''; ?>">
-                <i class="fas fa-sliders-h"></i>
-                <span>Settings</span>
-            </a>
-            <a href="<?php echo APP_URL; ?>/admin/activity_log.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'activity') !== false) ? 'active' : ''; ?>">
-                <i class="fas fa-history"></i>
-                <span>Activity Log</span>
-            </a>
-        </div>
-        <?php endif; ?>
-    </nav>
+                <div class="nav-section-label">MANAGEMENT</div>
+                <a href="<?php echo APP_URL; ?>/admin/clients/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'clients') !== false) ? 'active' : ''; ?>">
+                    <i class="fas fa-users"></i>
+                    <span>Clients</span>
+                </a>
+                <a href="<?php echo APP_URL; ?>/admin/projects/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'projects') !== false) ? 'active' : ''; ?>">
+                    <i class="fas fa-tasks"></i>
+                    <span>Projects</span>
+                </a>
+                <a href="<?php echo APP_URL; ?>/admin/service-categories/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'service-categories') !== false) ? 'active' : ''; ?>">
+                    <i class="fas fa-layer-group"></i>
+                    <span>Service Categories</span>
+                </a>
 
-    <!-- SIDEBAR FOOTER -->
-    <div class="sidebar-footer">
-        <a href="#" class="user-item" data-bs-toggle="dropdown">
-            <div class="user-avatar"><?php echo getInitials($user['name']); ?></div>
-            <div class="user-info">
-                <span class="user-name"><?php echo clean($user['name']); ?></span>
-                <span class="user-role"><?php echo ucfirst($user['role']); ?></span>
+                <div class="nav-section-label">FINANCE</div>
+                <a href="<?php echo APP_URL; ?>/admin/invoices/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'invoices') !== false) ? 'active' : ''; ?>">
+                    <i class="fas fa-receipt"></i>
+                    <span>Invoices</span>
+                </a>
+                <a href="<?php echo APP_URL; ?>/admin/quotations/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'quotations') !== false) ? 'active' : ''; ?>">
+                    <i class="fas fa-quote-left"></i>
+                    <span>Quotations</span>
+                </a>
+                <a href="<?php echo APP_URL; ?>/admin/payments/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'payments') !== false) ? 'active' : ''; ?>">
+                    <i class="fas fa-credit-card"></i>
+                    <span>Payments</span>
+                </a>
+
+                <div class="nav-section-label">COLLABORATION</div>
+                <a href="<?php echo APP_URL; ?>/admin/alerts/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'alerts') !== false) ? 'active' : ''; ?>">
+                    <i class="fas fa-bell"></i>
+                    <span>Manage Alerts</span>
+                </a>
+                <a href="<?php echo APP_URL; ?>/admin/meetings/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'meetings') !== false) ? 'active' : ''; ?>">
+                    <i class="fas fa-calendar-check"></i>
+                    <span>Meetings</span>
+                </a>
+          
+                <a href="<?php echo APP_URL; ?>/admin/document-bank.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'document-bank') !== false) ? 'active' : ''; ?>">
+                    <i class="fas fa-file-archive"></i>
+                    <span>Documents</span>
+                    <?php if ($documentCount > 0): ?>
+                        <span class="badge bg-primary" style="margin-left: auto;"></span>
+                    <?php endif; ?>
+                </a>
+                 <a href="<?php echo APP_URL; ?>/admin/todos/index.php" class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], 'todos') !== false) ? 'active' : ''; ?>">
+                    <i class="fas fa-check-square"></i>
+                    <span>My Todos</span>
+                </a>
             </div>
-            <a href="<?php echo APP_URL; ?>/logout.php" class="logout-btn" title="Logout">
-                <i class="fas fa-sign-out-alt"></i>
-            </a>
-        </a>
-    </div>
-</aside>
 
-<!-- TOPBAR -->
-<header class="topbar">
-    <div class="topbar-left">
-        <button class="hamburger-btn" id="sidebarToggle">
-            <i class="fas fa-bars"></i>
-        </button>
-        <nav class="breadcrumb">
-            <a class="breadcrumb-item" href="<?php echo APP_URL; ?>/admin/dashboard.php">Dashboard</a>
-            <span class="breadcrumb-item active"><?php echo isset($pageTitle) ? clean($pageTitle) : 'Page'; ?></span>
+   
+
+            <!-- ADMIN SECTION -->
+
         </nav>
-    </div>
 
-    <div class="topbar-right">
-        <button class="topbar-icon" title="Search">
-            <i class="fas fa-search"></i>
-        </button>
-        
-        <div style="position: relative;">
-            <button class="topbar-icon" id="notificationBell" title="Notifications">
-                <i class="fas fa-bell"></i>
-                <?php if ($notificationCount > 0): ?>
-                <span class="notification-badge"><?php echo min($notificationCount, 9); ?></span>
-                <?php endif; ?>
+        <!-- SIDEBAR FOOTER -->
+        <div class="sidebar-footer">
+            <a href="#" class="user-item" data-bs-toggle="dropdown">
+                <div class="user-avatar"><?php echo getInitials($user['name']); ?></div>
+                <div class="user-info">
+                    <span class="user-name"><?php echo clean($user['name']); ?></span>
+                    <span class="user-role"><?php echo ucfirst($user['role']); ?></span>
+                </div>
+                <a href="<?php echo APP_URL; ?>/logout.php" class="logout-btn" title="Logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                </a>
+            </a>
+        </div>
+    </aside>
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+        <div class="topbar-left">
+            <button class="hamburger-btn" id="sidebarToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+            <nav class="breadcrumb">
+                <a class="breadcrumb-item" href="<?php echo APP_URL; ?>/admin/dashboard.php">Dashboard</a>
+                <span class="breadcrumb-item active"><?php echo isset($pageTitle) ? clean($pageTitle) : 'Page'; ?></span>
+            </nav>
+        </div>
+
+        <div class="topbar-right">
+            <button class="topbar-icon" title="Search">
+                <i class="fas fa-search"></i>
             </button>
 
-            <div class="notification-dropdown" id="notificationDropdown">
-                <div class="notification-header">
-                    <i class="fas fa-bell-slash"></i> Notifications
-                </div>
-                <div id="notificationList">
-                    <div style="padding: 20px; text-align: center; color: #999;">
-                        <i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
-                        No notifications
+            <div style="position: relative;">
+                <button class="topbar-icon" id="notificationBell" title="Notifications">
+                    <i class="fas fa-bell"></i>
+                    <?php if ($notificationCount > 0): ?>
+                        <span class="notification-badge"><?php echo min($notificationCount, 9); ?></span>
+                    <?php endif; ?>
+                </button>
+
+                <div class="notification-dropdown" id="notificationDropdown">
+                    <div class="notification-header">
+                        <i class="fas fa-bell-slash"></i> Notifications
+                    </div>
+                    <div id="notificationList">
+                        <div style="padding: 20px; text-align: center; color: #999;">
+                            <i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+                            No notifications
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <button class="topbar-icon" title="Messages">
+                <i class="fas fa-envelope"></i>
+            </button>
+
+            <a href="#" class="topbar-icon" title="Profile">
+                <i class="fas fa-user-circle"></i>
+            </a>
         </div>
+    </header>
 
-        <button class="topbar-icon" title="Messages">
-            <i class="fas fa-envelope"></i>
-        </button>
-
-        <a href="#" class="topbar-icon" title="Profile">
-            <i class="fas fa-user-circle"></i>
-        </a>
-    </div>
-</header>
-
-<!-- MAIN CONTENT -->
-<main class="main-content">
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
