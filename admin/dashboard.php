@@ -646,9 +646,26 @@ include __DIR__ . '/../includes/header.php';
 </div>
 
 <!-- ApexCharts CDN -->
-<script src="https://cdn.jsdelivr.net/npm/apexcharts@latest/dist/apexcharts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.0/dist/apexcharts.min.js"></script>
 
 <script>
+// Wait for ApexCharts to load
+var chartsReady = false;
+var maxRetries = 10;
+var retryCount = 0;
+
+function waitForApexCharts() {
+    if (typeof ApexCharts !== 'undefined') {
+        chartsReady = true;
+        initCharts();
+    } else if (retryCount < maxRetries) {
+        retryCount++;
+        setTimeout(waitForApexCharts, 100);
+    } else {
+        console.error('ApexCharts failed to load');
+    }
+}
+
 // Prepare data from PHP
 <?php
 $months = [];
@@ -680,318 +697,228 @@ foreach ($serviceStatus as $data) {
 }
 ?>
 
-// Initialize charts after DOM is ready
+// Chart Data
+var chartData = {
+    months: <?php echo json_encode($months); ?>,
+    revenues: <?php echo json_encode($revenues); ?>,
+    projectLabels: <?php echo json_encode($projectLabels); ?>,
+    projectData: <?php echo json_encode($projectData); ?>,
+    clientLabels: <?php echo json_encode($clientLabels); ?>,
+    clientData: <?php echo json_encode($clientData); ?>,
+    serviceLabels: <?php echo json_encode($serviceLabels); ?>,
+    serviceData: <?php echo json_encode($serviceData); ?>
+};
+
+console.log('Chart Data:', chartData);
+
+// Initialize charts
 function initCharts() {
+    console.log('Initializing charts...');
+    
+    // Check if container elements exist
+    var revenueContainer = document.querySelector("#revenueChart");
+    var projectContainer = document.querySelector("#projectStatusChart");
+    var clientContainer = document.querySelector("#clientStatusChart");
+    var serviceContainer = document.querySelector("#serviceStatusChart");
+    
+    if (!revenueContainer || !projectContainer || !clientContainer || !serviceContainer) {
+        console.error('One or more chart containers not found');
+        return;
+    }
+    
+    console.log('All chart containers found');
+
     // 1. REVENUE OVERVIEW - Area Chart (MAIN CHART)
-    var revenueChart = new ApexCharts(document.querySelector("#revenueChart"), {
-        series: [{
-            name: 'Revenue (PKR)',
-            data: <?php echo json_encode($revenues); ?>
-        }],
-        chart: {
-            type: 'area',
-            height: 380,
-            fontFamily: 'Inter, sans-serif',
-            sparkline: { enabled: false },
-            toolbar: {
-                show: true,
-                tools: {
-                    download: true,
-                    selection: true,
-                    zoom: true,
-                    zoomin: true,
-                    zoomout: true,
-                    pan: true,
-                    reset: true
-                }
-            },
-            animations: {
-                enabled: true,
-                speed: 800,
-                animateGradually: {
-                    enabled: true,
-                    delay: 150
+    try {
+        var revenueChart = new ApexCharts(revenueContainer, {
+            series: [{
+                name: 'Revenue (PKR)',
+                data: chartData.revenues
+            }],
+            chart: {
+                type: 'area',
+                height: 380,
+                fontFamily: 'Inter, sans-serif',
+                sparkline: { enabled: false },
+                toolbar: {
+                    show: true,
+                    tools: {
+                        download: true,
+                        selection: true,
+                        zoom: true,
+                        zoomin: true,
+                        zoomout: true,
+                        pan: true,
+                        reset: true
+                    }
                 },
-                dynamicAnimation: {
+                animations: {
                     enabled: true,
-                    speed: 150
-                }
-            }
-        },
-        colors: ['#6418C3'],
-        stroke: {
-            curve: 'smooth',
-            width: 3,
-            lineCap: 'round'
-        },
-        fill: {
-            type: 'gradient',
-            gradient: {
-                shadeIntensity: 1,
-                opacityFrom: 0.45,
-                opacityTo: 0.05,
-                stops: [20, 100, 100, 100]
-            }
-        },
-        dataLabels: { enabled: false },
-        xaxis: {
-            categories: <?php echo json_encode($months); ?>,
-            title: { text: 'Month', style: { fontSize: '12px', fontWeight: 600 } },
-            tickPlacement: 'on',
-            axisBorder: { show: true, color: '#f0f0f0' },
-            axisTicks: { show: true, color: '#f0f0f0' }
-        },
-        yaxis: {
-            title: { text: 'Revenue (PKR)', style: { fontSize: '12px', fontWeight: 600 } },
-            labels: {
-                formatter: function(val) {
-                    return CURRENCY_SYMBOL + (val >= 1000 ? (val/1000).toFixed(0) + 'K' : val.toFixed(0));
-                }
-            }
-        },
-        tooltip: {
-            theme: 'light',
-            style: { fontSize: '12px' },
-            y: {
-                formatter: function(val) {
-                    return CURRENCY_SYMBOL + val.toLocaleString('en-PK', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    speed: 800
                 }
             },
-            marker: { show: true }
-        },
-        grid: {
-            borderColor: '#f1f1f1',
-            padding: { left: 0, right: 0 }
-        },
-        responsive: [{
-            breakpoint: 1400,
-            options: { chart: { height: 350 } }
-        }, {
-            breakpoint: 1024,
-            options: { chart: { height: 320 } }
-        }, {
-            breakpoint: 768,
-            options: { chart: { height: 280 } }
-        }]
-    });
-    revenueChart.render();
+            colors: ['#6418C3'],
+            stroke: {
+                curve: 'smooth',
+                width: 3,
+                lineCap: 'round'
+            },
+            fill: {
+                type: 'gradient',
+                gradient: {
+                    shadeIntensity: 1,
+                    opacityFrom: 0.45,
+                    opacityTo: 0.05,
+                    stops: [20, 100, 100, 100]
+                }
+            },
+            dataLabels: { enabled: false },
+            xaxis: {
+                categories: chartData.months,
+                title: { text: 'Month', style: { fontSize: '12px', fontWeight: 600 } },
+                axisBorder: { show: true, color: '#f0f0f0' },
+                axisTicks: { show: true, color: '#f0f0f0' }
+            },
+            yaxis: {
+                title: { text: 'Revenue (PKR)', style: { fontSize: '12px', fontWeight: 600 } },
+                labels: {
+                    formatter: function(val) {
+                        return '₨' + (val >= 1000 ? (val/1000).toFixed(0) + 'K' : val.toFixed(0));
+                    }
+                }
+            },
+            tooltip: {
+                theme: 'light',
+                style: { fontSize: '12px' },
+                y: {
+                    formatter: function(val) {
+                        return '₨' + val.toLocaleString('en-PK', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+                    }
+                }
+            },
+            grid: {
+                borderColor: '#f1f1f1',
+                padding: { left: 0, right: 0 }
+            },
+            responsive: [{
+                breakpoint: 1024,
+                options: { chart: { height: 300 } }
+            }]
+        });
+        revenueChart.render();
+        console.log('Revenue chart rendered');
+    } catch(e) {
+        console.error('Revenue chart error:', e);
+    }
 
     // 2. PROJECTS BY STATUS - Donut Chart
-    var projectChart = new ApexCharts(document.querySelector("#projectStatusChart"), {
-        series: <?php echo json_encode($projectData); ?>,
-        labels: <?php echo json_encode($projectLabels); ?>,
-        chart: {
-            type: 'donut',
-            height: 300,
-            fontFamily: 'Inter, sans-serif',
-            sparkline: { enabled: false },
-            animations: {
-                enabled: true,
-                speed: 800
-            }
-        },
-        colors: ['#6418C3', '#FF9B52', '#2BC155', '#1EAAE7'],
-        plotOptions: {
-            pie: {
-                donut: {
-                    size: '70%',
-                    labels: {
-                        show: true,
-                        name: {
+    try {
+        var projectChart = new ApexCharts(projectContainer, {
+            series: chartData.projectData,
+            labels: chartData.projectLabels,
+            chart: {
+                type: 'donut',
+                height: 300,
+                fontFamily: 'Inter, sans-serif',
+                animations: { enabled: true }
+            },
+            colors: ['#6418C3', '#FF9B52', '#2BC155', '#1EAAE7'],
+            plotOptions: {
+                pie: {
+                    donut: {
+                        size: '65%',
+                        labels: {
                             show: true,
-                            fontSize: '14px',
-                            fontWeight: 600,
-                            color: '#333'
-                        },
-                        value: {
-                            show: true,
-                            fontSize: '18px',
-                            fontWeight: 700,
-                            color: '#6418C3'
-                        },
-                        total: {
-                            show: true,
-                            label: 'Total Projects',
-                            fontSize: '12px',
-                            color: '#6418C3'
+                            name: { show: true, fontSize: '14px', fontWeight: 600 },
+                            value: { show: true, fontSize: '18px', fontWeight: 700 }
                         }
                     }
                 }
-            }
-        },
-        dataLabels: {
-            enabled: true,
-            dropShadow: { enabled: false },
-            style: {
-                fontSize: '12px',
-                fontWeight: '600',
-                colors: ['#fff']
-            }
-        },
-        legend: {
-            position: 'bottom',
-            fontSize: '12px',
-            labels: { colors: '#666' },
-            markers: { width: 10, height: 10, radius: 2 }
-        },
-        tooltip: {
-            theme: 'light',
-            style: { fontSize: '12px' },
-            y: {
-                formatter: function(val) {
-                    return val + ' project' + (val !== 1 ? 's' : '');
-                }
-            }
-        }
-    });
-    projectChart.render();
+            },
+            dataLabels: { enabled: true, style: { fontSize: '12px', fontWeight: '600' } },
+            legend: { position: 'bottom', fontSize: '12px' },
+            tooltip: { theme: 'light' }
+        });
+        projectChart.render();
+        console.log('Project chart rendered');
+    } catch(e) {
+        console.error('Project chart error:', e);
+    }
 
     // 3. CLIENTS BY STATUS - Donut Chart
-    var clientChart = new ApexCharts(document.querySelector("#clientStatusChart"), {
-        series: <?php echo json_encode($clientData); ?>,
-        labels: <?php echo json_encode($clientLabels); ?>,
-        chart: {
-            type: 'donut',
-            height: 300,
-            fontFamily: 'Inter, sans-serif',
-            sparkline: { enabled: false },
-            animations: {
-                enabled: true,
-                speed: 800
-            }
-        },
-        colors: ['#2BC155', '#FF5E5E', '#FFC107'],
-        plotOptions: {
-            pie: {
-                donut: {
-                    size: '70%',
-                    labels: {
-                        show: true,
-                        name: {
+    try {
+        var clientChart = new ApexCharts(clientContainer, {
+            series: chartData.clientData,
+            labels: chartData.clientLabels,
+            chart: {
+                type: 'donut',
+                height: 300,
+                fontFamily: 'Inter, sans-serif',
+                animations: { enabled: true }
+            },
+            colors: ['#2BC155', '#FF5E5E', '#FFC107'],
+            plotOptions: {
+                pie: {
+                    donut: {
+                        size: '65%',
+                        labels: {
                             show: true,
-                            fontSize: '14px',
-                            fontWeight: 600,
-                            color: '#333'
-                        },
-                        value: {
-                            show: true,
-                            fontSize: '18px',
-                            fontWeight: 700,
-                            color: '#2BC155'
-                        },
-                        total: {
-                            show: true,
-                            label: 'Total Clients',
-                            fontSize: '12px',
-                            color: '#2BC155'
+                            name: { show: true, fontSize: '14px', fontWeight: 600 },
+                            value: { show: true, fontSize: '18px', fontWeight: 700 }
                         }
                     }
                 }
-            }
-        },
-        dataLabels: {
-            enabled: true,
-            dropShadow: { enabled: false },
-            style: {
-                fontSize: '12px',
-                fontWeight: '600',
-                colors: ['#fff']
-            }
-        },
-        legend: {
-            position: 'bottom',
-            fontSize: '12px',
-            labels: { colors: '#666' },
-            markers: { width: 10, height: 10, radius: 2 }
-        },
-        tooltip: {
-            theme: 'light',
-            style: { fontSize: '12px' },
-            y: {
-                formatter: function(val) {
-                    return val + ' client' + (val !== 1 ? 's' : '');
-                }
-            }
-        }
-    });
-    clientChart.render();
+            },
+            dataLabels: { enabled: true, style: { fontSize: '12px', fontWeight: '600' } },
+            legend: { position: 'bottom', fontSize: '12px' },
+            tooltip: { theme: 'light' }
+        });
+        clientChart.render();
+        console.log('Client chart rendered');
+    } catch(e) {
+        console.error('Client chart error:', e);
+    }
 
     // 4. SERVICES BY STATUS - Donut Chart
-    var serviceChart = new ApexCharts(document.querySelector("#serviceStatusChart"), {
-        series: <?php echo json_encode($serviceData); ?>,
-        labels: <?php echo json_encode($serviceLabels); ?>,
-        chart: {
-            type: 'donut',
-            height: 300,
-            fontFamily: 'Inter, sans-serif',
-            sparkline: { enabled: false },
-            animations: {
-                enabled: true,
-                speed: 800
-            }
-        },
-        colors: ['#2BC155', '#FF5E5E', '#999'],
-        plotOptions: {
-            pie: {
-                donut: {
-                    size: '70%',
-                    labels: {
-                        show: true,
-                        name: {
+    try {
+        var serviceChart = new ApexCharts(serviceContainer, {
+            series: chartData.serviceData,
+            labels: chartData.serviceLabels,
+            chart: {
+                type: 'donut',
+                height: 300,
+                fontFamily: 'Inter, sans-serif',
+                animations: { enabled: true }
+            },
+            colors: ['#2BC155', '#FF5E5E', '#999'],
+            plotOptions: {
+                pie: {
+                    donut: {
+                        size: '65%',
+                        labels: {
                             show: true,
-                            fontSize: '14px',
-                            fontWeight: 600,
-                            color: '#333'
-                        },
-                        value: {
-                            show: true,
-                            fontSize: '18px',
-                            fontWeight: 700,
-                            color: '#FF5E5E'
-                        },
-                        total: {
-                            show: true,
-                            label: 'Total Services',
-                            fontSize: '12px',
-                            color: '#FF5E5E'
+                            name: { show: true, fontSize: '14px', fontWeight: 600 },
+                            value: { show: true, fontSize: '18px', fontWeight: 700 }
                         }
                     }
                 }
-            }
-        },
-        dataLabels: {
-            enabled: true,
-            dropShadow: { enabled: false },
-            style: {
-                fontSize: '12px',
-                fontWeight: '600',
-                colors: ['#fff']
-            }
-        },
-        legend: {
-            position: 'bottom',
-            fontSize: '12px',
-            labels: { colors: '#666' },
-            markers: { width: 10, height: 10, radius: 2 }
-        },
-        tooltip: {
-            theme: 'light',
-            style: { fontSize: '12px' },
-            y: {
-                formatter: function(val) {
-                    return val + ' service' + (val !== 1 ? 's' : '');
-                }
-            }
-        }
-    });
-    serviceChart.render();
+            },
+            dataLabels: { enabled: true, style: { fontSize: '12px', fontWeight: '600' } },
+            legend: { position: 'bottom', fontSize: '12px' },
+            tooltip: { theme: 'light' }
+        });
+        serviceChart.render();
+        console.log('Service chart rendered');
+    } catch(e) {
+        console.error('Service chart error:', e);
+    }
 }
 
-// Call function when DOM is loaded
+// Initialize when DOM is ready
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initCharts);
+    document.addEventListener('DOMContentLoaded', waitForApexCharts);
 } else {
-    initCharts();
+    waitForApexCharts();
 }
 </script>
 
